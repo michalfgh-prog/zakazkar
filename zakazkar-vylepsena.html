@@ -197,7 +197,16 @@
 
   /* ---------- app ---------- */
   .app { display:grid; grid-template-columns:250px 1fr; min-height:100vh; }
-  @media (max-width: 900px) { .app { grid-template-columns:1fr; } .sidebar { position:fixed; left:-270px; z-index:60; transition:left .25s; height:100vh; } .sidebar.open { left:0; } }
+  .sidebar-close { display:none; margin-left:auto; width:38px; height:38px; border:1px solid var(--border); border-radius:10px; color:var(--txt); background:var(--panel); font-size:22px; cursor:pointer; }
+  .sidebar-backdrop { display:none; }
+  @media (max-width: 900px) {
+    .app { grid-template-columns:minmax(0,1fr); width:100%; min-width:0; }
+    .sidebar { position:fixed; inset:0 auto 0 0; width:min(280px,86vw); height:100vh; height:100dvh; z-index:101; overflow-y:auto; transform:translateX(-105%); visibility:hidden; transition:transform .22s ease,visibility .22s; box-shadow:8px 0 30px rgba(16,24,40,.2); }
+    .sidebar.open { transform:translateX(0); visibility:visible; }
+    .sidebar-close { display:flex; align-items:center; justify-content:center; }
+    .sidebar-backdrop:not(.hidden) { display:block; position:fixed; inset:0; z-index:100; width:100%; height:100%; padding:0; border:0; background:rgba(11,16,32,.48); }
+    body.sidebar-open { overflow:hidden; }
+  }
   .sidebar { background:var(--bg2); backdrop-filter:blur(28px) saturate(150%); -webkit-backdrop-filter:blur(28px) saturate(150%); border-right:1px solid rgba(255,255,255,.1); padding:22px 14px; display:flex; flex-direction:column; gap:4px; }
   .side-brand { display:flex; align-items:center; gap:10px; padding:6px 10px 22px; font-weight:800; font-size:15.5px; }
   .nav-item { display:flex; align-items:center; gap:12px; padding:11px 14px; border-radius:12px; color:var(--muted); cursor:pointer; font-weight:500; font-size:14px; transition:all .18s; border:1px solid transparent; }
@@ -211,7 +220,7 @@
   .plan-mini span { font-size:12px; color:var(--muted); }
 
   .main { padding:26px 32px; max-width:1240px; }
-  @media (max-width: 600px) { .main { padding:18px 16px; } }
+  @media (max-width: 600px) { .main { padding:16px 12px; width:100%; min-width:0; } .topbar { gap:10px; margin-bottom:18px; } .topbar-right { width:100%; margin-left:0; justify-content:flex-end; gap:7px; } .topbar-right .btn { padding:9px 11px; font-size:12px; } }
   .topbar { display:flex; align-items:center; gap:16px; margin-bottom:26px; flex-wrap:wrap; }
   .topbar h1 { font-size:22px; font-weight:700; margin:0; }
   .topbar .crumb { color:var(--muted); font-size:13px; margin-top:2px; }
@@ -773,7 +782,7 @@
 <!-- ================= APP ================= -->
 <div class="app hidden" id="app">
   <aside class="sidebar" id="sidebar">
-    <div class="side-brand"><span class="logo" style="margin:0;"><span class="mark">Z</span></span> Zakázkář</div>
+    <div class="side-brand"><span class="logo" style="margin:0;"><span class="mark">Z</span></span> Zakázkář<button class="sidebar-close" type="button" onclick="closeSidebar()" aria-label="Zavřít menu">×</button></div>
     <div class="nav-item active" role="button" tabindex="0" data-view="dashboard" onclick="setView('dashboard')"><span>📊</span> Přehled</div>
     <div class="nav-item" role="button" tabindex="0" data-view="jobs" onclick="setView('jobs')"><span>📋</span> Zakázky <span class="n" id="nav-newcount"></span></div>
     <div class="nav-item" role="button" tabindex="0" data-view="chat" onclick="setView('chat')"><span>💬</span> Chat <span class="n" id="nav-chatcount"></span></div>
@@ -790,12 +799,13 @@
       </div>
     </div>
   </aside>
+  <button class="sidebar-backdrop hidden" id="sidebar-backdrop" type="button" aria-label="Zavřít menu" onclick="closeSidebar()"></button>
 
   <div class="main-wrap" style="min-width:0;">
     <div class="main">
       <div class="demo-notice" role="status">Ukázkový účet · Scanner cílí na poptávky zákazníků z poptávkových portálů. Účty a platby nejsou napojené.</div>
       <div class="topbar">
-        <button class="burger" onclick="document.getElementById('sidebar').classList.toggle('open')">☰</button>
+        <button class="burger" type="button" onclick="toggleSidebar()" aria-label="Otevřít navigační menu" aria-expanded="false" id="sidebar-toggle">☰</button>
         <div>
           <h1 id="view-title">Přehled</h1>
           <div class="crumb" id="view-crumb">Dobrý den, <span id="hello-name">Tom</span> 👋</div>
@@ -1204,12 +1214,20 @@ function setView(v) {
   ['dashboard','jobs','chat','favorites','keywords','sources','billing','settings'].forEach(name => $('#view-'+name).classList.toggle('hidden', name!==v));
   $('#view-title').textContent = VIEW_TITLES[v][0];
   $('#view-crumb').innerHTML = VIEW_TITLES[v][1] + (v==='dashboard' ? ', <span id="hello-name">'+session.name.split(' ')[0]+'</span> 👋' : '');
-  $('#sidebar').classList.remove('open');
+  closeSidebar();
   if (v==='dashboard') renderDashboard();
   if (v==='jobs') renderLeads();
   if (chatPollTimer) { clearInterval(chatPollTimer); chatPollTimer=null; }
   if (v==='chat') { renderChat(); if(onlineUser){ refreshChatThreads(); chatPollTimer=setInterval(()=>{refreshChatThreads();if(activeChatId)refreshChatMessages();},3000); } }
   if (v==='favorites') renderFavorites();
+}
+function toggleSidebar() {
+  const open=!$('#sidebar').classList.contains('open');
+  $('#sidebar').classList.toggle('open',open);$('#sidebar-backdrop').classList.toggle('hidden',!open);document.body.classList.toggle('sidebar-open',open);
+  $('#sidebar-toggle')?.setAttribute('aria-expanded',String(open));
+}
+function closeSidebar() {
+  $('#sidebar')?.classList.remove('open');$('#sidebar-backdrop')?.classList.add('hidden');document.body.classList.remove('sidebar-open');$('#sidebar-toggle')?.setAttribute('aria-expanded','false');
 }
 document.addEventListener('keydown', e => { if ((e.key==='Enter'||e.key===' ') && e.target.matches('.nav-item[role=button]')) { e.preventDefault(); setView(e.target.dataset.view); } });
 function setTab(t, el){ currentTab = t; $$('.tab').forEach(x=>{x.classList.remove('active');x.setAttribute('aria-selected','false');}); el.classList.add('active'); el.setAttribute('aria-selected','true'); renderLeads(); }
