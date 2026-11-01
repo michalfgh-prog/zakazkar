@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f7f9fc">
+  <meta name="description" content="Jednoduchý mobilní přehled poptávek a zakázek pro řemeslníky a podnikatele.">
+  <title>Zakázkář · Zakázky do mobilu</title>
+  <style>
+    :root{color-scheme:light;--ink:#172033;--muted:#697586;--line:#e5eaf1;--blue:#2459d3;--blue-soft:#eff5ff;--green:#13865a;--bg:#f7f9fc;--white:#fff;--shadow:0 10px 28px rgba(24,39,75,.07)}
+    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}button,input,select{font:inherit}button,a,select{touch-action:manipulation}a{color:inherit}
+    .wrap{width:min(100% - 28px,760px);margin:auto;padding:0 0 calc(28px + env(safe-area-inset-bottom))}
+    header{padding:18px 0 8px;display:flex;align-items:center;justify-content:space-between;gap:12px}.brand{display:flex;align-items:center;gap:10px;font-weight:800;letter-spacing:-.3px}.mark{display:grid;place-items:center;width:36px;height:36px;border-radius:12px;background:var(--blue);color:white;font-weight:900}.online{font-size:12px;color:var(--green);background:#eaf8f0;border-radius:99px;padding:5px 10px;font-weight:700}
+    .hero{padding:18px 0 16px}.eyebrow{color:var(--blue);font-weight:750;font-size:12px;letter-spacing:.08em;text-transform:uppercase}.hero h1{font-size:clamp(26px,7vw,38px);line-height:1.12;letter-spacing:-1px;margin:7px 0}.hero p{margin:0;color:var(--muted);font-size:15px}
+    .card{background:var(--white);border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:var(--shadow);margin:12px 0}.form-title{font-size:17px;margin:0 0 12px}.field{display:grid;gap:6px;margin:12px 0}.field label{font-size:13px;font-weight:700}.field select,.field input,.filter{width:100%;min-height:48px;border:1px solid #d6deea;border-radius:12px;padding:11px 13px;background:#fff;color:var(--ink);outline:none}.field select:focus,.field input:focus,.filter:focus{border-color:#7fa3f1;box-shadow:0 0 0 3px #2459d31c}
+    .btn{width:100%;min-height:50px;border:0;border-radius:13px;background:var(--blue);color:white;font-weight:750;padding:12px 16px;cursor:pointer;box-shadow:0 6px 14px #2459d326}.btn:disabled{opacity:.62;cursor:wait}.hint{font-size:12px;color:var(--muted);margin:10px 2px 0}
+    .results-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:22px 2px 10px}.results-head h2{font-size:19px;margin:0}.count{font-size:12px;color:var(--muted);white-space:nowrap}.filter{margin-bottom:12px;min-height:44px}.lead{background:#fff;border:1px solid var(--line);border-radius:16px;padding:15px;margin:10px 0;box-shadow:0 3px 12px rgba(24,39,75,.035)}.lead h3{font-size:16px;line-height:1.35;margin:0 0 8px;letter-spacing:-.2px}.lead h3 a{text-decoration:none}.lead h3 a:hover{color:var(--blue)}.excerpt{font-size:13px;color:#586579;margin:0 0 11px}.meta{display:flex;flex-wrap:wrap;gap:7px 12px;font-size:12px;color:var(--muted)}.source{color:var(--blue);font-weight:750;background:var(--blue-soft);border-radius:7px;padding:3px 8px}.open{display:inline-flex;align-items:center;justify-content:center;min-height:42px;padding:8px 13px;margin-top:13px;text-decoration:none;color:var(--blue);background:var(--blue-soft);border-radius:10px;font-size:13px;font-weight:750}.empty,.status{padding:16px;border-radius:13px;background:#fff;border:1px solid var(--line);color:var(--muted);font-size:14px}.status.error{color:#a12d3a;background:#fff5f5;border-color:#f3cccc}.status.loading{color:#214ca8;background:var(--blue-soft)}details{margin:12px 2px;color:var(--muted);font-size:13px}summary{cursor:pointer;font-weight:700}#source-report{padding-left:18px}.foot{font-size:11px;line-height:1.5;color:var(--muted);text-align:center;margin:20px 6px 0}
+    @media(min-width:640px){.wrap{width:min(100% - 40px,760px)}header{padding-top:24px}.card{padding:22px}.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}.btn{max-width:280px}}
+    @media(prefers-reduced-motion:no-preference){.lead{animation:appear .18s ease-out}@keyframes appear{from{opacity:.6;transform:translateY(3px)}to{opacity:1;transform:none}}}
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <header><div class="brand"><span class="mark">Z</span><span>Zakázkář</span></div><span class="online">● Jednoduchý přehled</span></header>
+    <section class="hero"><div class="eyebrow">Pro řemeslníky a podnikatele</div><h1>Zakázky do mobilu</h1><p>Najděte poptávky z více portálů na jednom místě.</p></section>
+    <section class="card" aria-labelledby="search-title">
+      <h2 class="form-title" id="search-title">Co hledáte?</h2>
+      <div class="form-grid">
+        <div class="field"><label for="trade">Obor zakázky</label><select id="trade">
+          <option value="all">Všechny řemeslné práce</option><option value="moving">Stěhování</option><option value="clearance">Vyklízení, odvoz a suť</option><option value="masonry">Zednické a stavební práce</option><option value="interior">Malování, omítky a sádrokarton</option><option value="installation">Instalatér, topenář a plyn</option><option value="electric">Elektro a klimatizace</option><option value="wood">Truhlář, tesař a střecha</option><option value="floor">Podlahy a obklady</option><option value="handyman">Údržba a drobné práce</option>
+        </select></div>
+        <div class="field"><label for="extra">Další slova (nepovinné)</label><input id="extra" type="text" placeholder="např. garáž, koupelna"></div>
+      </div>
+      <button class="btn" id="scan" type="button" onclick="scanJobs()">🔎 Vyhledat poptávky</button>
+      <p class="hint">Vyhledávání pro Moravskoslezský kraj · dostupnost výsledků závisí na jednotlivých portálech.</p>
+    </section>
+    <div id="status" class="status" role="status">Zvolte obor a spusťte vyhledávání.</div>
+    <div class="results-head"><h2>Nalezené poptávky</h2><span class="count" id="count">0 výsledků</span></div>
+    <input class="filter" id="filter" type="search" placeholder="Filtrovat nalezené zakázky…" aria-label="Filtrovat nalezené zakázky" oninput="renderResults()">
+    <section id="results" aria-live="polite"><div class="empty">Zatím nejsou načtené žádné výsledky.</div></section>
+    <details><summary>Stav prohledaných portálů</summary><ul id="source-report"><li>Po spuštění hledání se zde zobrazí stav zdrojů.</li></ul></details>
+    <p class="foot">Mobilní přehled poptávek. Každý výsledek pochází z uvedeného portálu; podmínky kontaktování zákazníka si ověřte u zdroje.</p>
+  </main>
+<script>
+const SOURCES=['epoptavka','poptavej','poptavky','nejremeslnici','poptavkaeu','trh','zakazky','aaapoptavka','aaasubdodavky','pop24','hledamruce','ceskestavby','dohodni','ubo','dalbovac','nejstav','avizo','bazos','sbazar','supersoused','nevyhazujto','vsezaodvoz'];
+const TRADES={
+  all:['zedník','omítky','sádrokarton','instalatér','topenář','obkladač','elektrikář','podlahář','plyn','beton','klimatizace','truhlář','tesař','střecha','klempíř','malíř','tapety','hodinový manžel','kominík','zámečník','sklenář','stěhování','vyklízení','odvoz','kontejner','bourání','likvidace'],
+  moving:['stěhování','odvoz','vyklízení'],clearance:['vyklízení','odvoz','kontejner','bourání','likvidace'],masonry:['zedník','beton','omítky','bourání'],interior:['malíř','tapety','omítky','sádrokarton'],installation:['instalatér','topenář','plyn'],electric:['elektrikář','klimatizace'],wood:['truhlář','tesař','střecha','klempíř'],floor:['podlahář','obkladač'],handyman:['hodinový manžel','zámečník','sklenář','kominík','zedník']
+};
+let items=[];
+const $=id=>document.getElementById(id);
+function esc(value){return String(value||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function status(text,type=''){const el=$('status');el.textContent=text;el.className='status '+type;}
+async function scanJobs(){
+  const button=$('scan');button.disabled=true;button.textContent='⏳ Hledám poptávky…';status('Prohledávám vybrané portály. Může to chvíli trvat.','loading');
+  const base=[...TRADES[$('trade').value]];const extra=$('extra').value.split(',').map(x=>x.trim()).filter(x=>x.length>1);const keywords=[...new Set([...base,...extra])];
+  try{
+    const response=await fetch('/api/scan',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({keywords,sourceIds:SOURCES}),signal:AbortSignal.timeout(180000)});
+    const data=await response.json().catch(()=>({}));if(!response.ok)throw new Error(data.error||'Vyhledávání se nepodařilo spustit.');
+    items=Array.isArray(data.items)?data.items:[];try{localStorage.setItem('zakazkar_mobile_results',JSON.stringify({items,ts:Date.now()}));}catch{}
+    renderResults();const good=(data.sources||[]).filter(s=>!s.error).length;status(`Hotovo · ${items.length} poptávek · portály odpověděly: ${good} z ${(data.sources||[]).length}.`,'');
+    $('source-report').innerHTML=(data.sources||[]).map(s=>`<li>${esc(s.error?'⚠ '+s.source+': '+s.error:'✓ '+s.source+': '+(s.count||0)+' poptávek')}</li>`).join('')||'<li>Portály nevrátily stav.</li>';
+  }catch(error){status(error.name==='TimeoutError'?'Vyhledávání trvá příliš dlouho. Zkuste to prosím znovu.':error.message,'error');}
+  finally{button.disabled=false;button.textContent='🔎 Vyhledat poptávky';}
+}
+function renderResults(){
+  const q=$('filter').value.trim().toLocaleLowerCase('cs');const found=items.filter(x=>[x.title,x.excerpt,x.source,x.location].join(' ').toLocaleLowerCase('cs').includes(q));
+  $('count').textContent=`${found.length} ${found.length===1?'výsledek':found.length>=2&&found.length<=4?'výsledky':'výsledků'}`;
+  $('results').innerHTML=found.length?found.map(x=>{let href='#';try{const u=new URL(x.url);if(['http:','https:'].includes(u.protocol))href=u.href;}catch{}return `<article class="lead"><h3><a href="${esc(href)}" target="_blank" rel="noopener noreferrer">${esc(x.title)}</a></h3>${x.excerpt?`<p class="excerpt">${esc(x.excerpt)}</p>`:''}<div class="meta"><span class="source">${esc(x.source)}</span><span>📍 ${esc(x.location||'Lokalita neuvedena')}</span>${x.postedLabel?`<span>🕒 ${esc(x.postedLabel)}</span>`:''}</div><a class="open" href="${esc(href)}" target="_blank" rel="noopener noreferrer">Otevřít původní poptávku ↗</a></article>`;}).join(''):'<div class="empty">'+(items.length?'Filtru neodpovídá žádná poptávka.':'Po vyhledání se výsledky zobrazí zde.')+'</div>';
+}
+try{const saved=JSON.parse(localStorage.getItem('zakazkar_mobile_results')||'null');if(saved&&Array.isArray(saved.items)){items=saved.items;renderResults();status(`Zobrazuji poslední vyhledávání z ${new Date(saved.ts).toLocaleString('cs-CZ')}.`);}}
+catch{}
+</script>
+</body>
+</html>

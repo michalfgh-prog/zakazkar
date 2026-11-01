@@ -1,0 +1,10 @@
+ZAKÁZKÁŘ – MOBILNÍ BALÍČEK
+
+1. Rozbalte celý ZIP do složky.
+2. Spusťte Spustit-mobilni-Zakazkar.bat. Pokud chybí Node.js, nainstalujte jej.
+3. Na počítači se otevře mobilní stránka Zakázkáře. Černé okno nechte otevřené.
+
+Stránku můžete otevřít také na http://127.0.0.1:8767/mobilni-zakazkar.html.
+Adresa 127.0.0.1 funguje pouze na stejném počítači. Telefon ve stejné Wi-Fi může použít místní IP adresu počítače a port 8767 (povolte přístup ve firewallu, pokud se zobrazí dotaz).
+
+Pro známé, kteří jsou mimo vaši síť, je nutné server nasadit na veřejný hosting s HTTPS. Samotné poslání tohoto ZIPu jim online přístup nezajistí. Složka data vedle serveru obsahuje uložené účty a zprávy, pokud se využije chat.
