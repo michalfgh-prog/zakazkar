@@ -1,31 +1,27 @@
-NÁVOD – KOMPLETNÍ MOBILNÍ ZAKÁZKÁŘ
+NÁVOD – ZAKÁZKÁŘ S DATABÁZÍ A CHATEM
 
-CO JE V BALÍČKU
-- Mobilní aplikace s částmi Poptávky a Naše tipy.
-- Server pro vyhledávání, účty, příspěvky, fotky, lajky a komentáře.
-- Původní aplikace, dostupná na /zakazkar-vylepsena.html.
-- Spustit-mobilni-Zakazkar.bat pro jednoduché spuštění na počítači.
+CO BALÍČEK OBSAHUJE
+- Mobilní aplikaci s Poptávkami a Našimi tipy.
+- Server pro registraci, přihlášení a soukromé zprávy mezi uživateli.
+- PostgreSQL ukládání účtů, přihlašovacích relací a zpráv.
+- Spuštění na počítači a nasazení na Render.
 
-SPUŠTĚNÍ NA POČÍTAČI
-1. Rozbalte celý ZIP do jedné složky. Nepřesouvejte soubory ze složky serveru zvlášť.
-2. Pokud už běží starý černý server, zavřete jeho okno.
-3. Dvojklikem spusťte Spustit-mobilni-Zakazkar.bat. Černé okno nechte otevřené.
-4. Aplikace se otevře na http://127.0.0.1:8766/.
-5. Adresa /api/health je pouze kontrola serveru, není to stránka aplikace.
+NASAZENÍ A DATABÁZE NA RENDERU
+1. Rozbalte celý ZIP.
+2. V Renderu otevřete + New → Postgres. Databázi pojmenujte Zakazkar a zvolte stejný region jako webovou službu.
+3. Free databáze Renderu je pouze na zkoušku: po 30 dnech vyprší a bez upgradu mohou být data smazána. Pro dlouhodobé účty a zprávy zvolte placený plán; před vytvořením zkontrolujte cenu v Renderu.
+4. Po vytvoření databáze otevřete její Connect a zkopírujte Internal Database URL. Tuto adresu nikomu neposílejte.
+5. V Renderu otevřete webovou službu Zakázkář → Environment → Add Environment Variable. Název: DATABASE_URL. Hodnota: Internal Database URL z kroku 4. Uložte změnu.
+6. Nahrajte obsah rozbaleného ZIPu přímo do kořene GitHub repozitáře. Soubory package.json, server.js a mobilni-zakazkar.html musí být přímo vedle sebe.
+7. V Renderu nastavte Root Directory prázdné, Build Command npm install a Start Command npm start.
+8. Spusťte Manual Deploy → Deploy latest commit.
+9. Po nasazení otevřete hlavní adresu webové služby. Registrace, účty a chat se ukládají do PostgreSQL.
 
-ZVEŘEJNĚNÍ PŘES GITHUB A RENDER
-1. Rozbalte ZIP.
-2. Nahrajte OBSAH složky přímo do kořene GitHub repozitáře. Ne pouze ZIP a ne do podsložky. Při výzvě potvrďte nahrazení souborů.
-3. V Renderu použijte Web Service a nechte Root Directory prázdné.
-4. Build Command nastavte na npm install.
-5. Start Command nastavte na npm start.
-6. V Renderu klikněte Manual Deploy → Deploy latest commit.
-7. Po dokončení otevřete veřejnou adresu služby Render, bez /api/health.
+BEZPEČNOST
+DATABASE_URL obsahuje přihlašovací údaje do databáze. Vkládejte ji pouze do Render → Environment. Nikdy ji neukládejte do GitHubu, neposílejte v chatu ani nevkládejte do HTML souboru. Aplikace používá interní adresu databáze z Renderu.
 
-Pro nasazení jsou hlavní soubory package.json, server.js, mobilni-zakazkar.html a zakazkar-vylepsena.html. Musí být přímo vedle sebe v kořeni repozitáře.
+LOKÁLNÍ SPUŠTĚNÍ
+Dvojklikem spusťte Spustit-mobilni-Zakazkar.bat. Bez DATABASE_URL funguje jen lokálně přes soubor; místní zprávy a účty se nesynchronizují s Renderem. /api/health je jen kontrolní adresa, aplikace je na hlavní adrese.
 
-NAŠE TIPY
-Pro přidávání, lajkování a komentování se uživatel přihlásí nebo vytvoří účet. Heslo musí mít alespoň 10 znaků. Každý přihlášený uživatel může publikovat vlastní tip i fotografii.
-
-UPOZORNĚNÍ K DATŮM
-Data chatů a tipů jsou nyní ukládána na disk serveru. Bez trvalého disku nebo databáze mohou být data na bezplatném Renderu po restartu ztracena.
+ÚLOŽIŠTĚ TIPŮ
+Příspěvky, fotografie, lajky a komentáře „Našich tipů“ zůstávají zatím v souboru služby. Pro jejich zachování po restartu bude potřeba přesunout také feed do PostgreSQL nebo objektového úložiště.

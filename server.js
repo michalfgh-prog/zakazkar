@@ -7,6 +7,7 @@ const HOST = process.env.HOST || '0.0.0.0';
 const PORT = Number(process.env.PORT) || 8766;
 const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, 'data');
 const DATA_FILE = path.join(DATA_DIR, 'online-data.json');
+const DATABASE_URL = process.env.DATABASE_URL || '';
 const READER = 'https://r.jina.ai/';
 const MAX_BODY = 64 * 1024;
 const MIN_READER_INTERVAL_MS = 3100;
@@ -15,6 +16,51 @@ let onlineData = { users:[], sessions:[], messages:[], posts:[] };
 try { onlineData = { ...onlineData, ...JSON.parse(fs.readFileSync(DATA_FILE, 'utf8')) }; } catch {}
 onlineData.posts ||= [];
 const onlinePresence = new Map();
+let dbPool = null;
+async function initializeDatabase() {
+  if (!DATABASE_URL) return;
+  const { Pool } = require('pg');
+  dbPool = new Pool({ connectionString:DATABASE_URL, max:5, idleTimeoutMillis:30000, connectionTimeoutMillis:10000 });
+  await dbPool.query(`
+    CREATE TABLE IF NOT EXISTS app_users (
+      id TEXT PRIMARY KEY, name TEXT NOT NULL, email TEXT NOT NULL UNIQUE,
+      role TEXT NOT NULL DEFAULT 'user', password_hash TEXT NOT NULL,
+      salt TEXT NOT NULL, created BIGINT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS app_sessions (
+      token_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
+      expires BIGINT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS app_sessions_user_id_idx ON app_sessions(user_id);
+    CREATE TABLE IF NOT EXISTS chat_messages (
+      id TEXT PRIMARY KEY, sender_id TEXT NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
+      recipient_id TEXT NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
+      body TEXT NOT NULL, created BIGINT NOT NULL, read_at BIGINT
+    );
+    CREATE INDEX IF NOT EXISTS chat_messages_sender_created_idx ON chat_messages(sender_id, created);
+    CREATE INDEX IF NOT EXISTS chat_messages_recipient_created_idx ON chat_messages(recipient_id, created);
+  `);
+  for (const u of onlineData.users) {
+    await dbPool.query(`INSERT INTO app_users(id,name,email,role,password_hash,salt,created)
+      VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(email) DO NOTHING`,
+      [u.id,u.name,u.email,u.role||'user',u.passwordHash,u.salt,u.created||Date.now()]);
+  }
+  for (const s of onlineData.sessions) {
+    await dbPool.query(`INSERT INTO app_sessions(token_hash,user_id,expires)
+      VALUES($1,$2,$3) ON CONFLICT(token_hash) DO NOTHING`,[s.tokenHash,s.userId,s.expires]);
+  }
+  for (const m of onlineData.messages) {
+    await dbPool.query(`INSERT INTO chat_messages(id,sender_id,recipient_id,body,created,read_at)
+      VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(id) DO NOTHING`,[m.id,m.from,m.to,m.text,m.ts,m.readAt||null]);
+  }
+  const [users,sessions] = await Promise.all([
+    dbPool.query('SELECT id,name,email,role,password_hash AS "passwordHash",salt,created FROM app_users'),
+    dbPool.query('SELECT token_hash AS "tokenHash",user_id AS "userId",expires FROM app_sessions WHERE expires > $1',[Date.now()])
+  ]);
+  onlineData.users=users.rows.map(u=>({...u,created:Number(u.created)}));
+  onlineData.sessions=sessions.rows.map(s=>({...s,expires:Number(s.expires)}));
+  console.log(JSON.stringify({database:'postgresql',users:users.rowCount}));
+}
 function saveOnlineData() {
   fs.mkdirSync(DATA_DIR, { recursive:true });
   const temp = DATA_FILE + '.tmp';
@@ -29,8 +75,15 @@ function getCookie(req, key) {
   for (const cookie of cookies) { const i=cookie.indexOf('='); if(i>0 && cookie.slice(0,i).trim()===key) return decodeURIComponent(cookie.slice(i+1).trim()); }
   return '';
 }
-function currentUser(req) {
+async function currentUser(req) {
   const token=getCookie(req,'zakazkar_session'); if(!token) return null;
+  if(dbPool) {
+    const {rows}=await dbPool.query(`SELECT u.id,u.name,u.email,u.role FROM app_sessions s
+      JOIN app_users u ON u.id=s.user_id WHERE s.token_hash=$1 AND s.expires>$2`,[sha256(token),Date.now()]);
+    const user=rows[0]||null;
+    if(user) onlinePresence.set(user.id,Date.now());
+    return user;
+  }
   const session=onlineData.sessions.find(s=>s.tokenHash===sha256(token)&&s.expires>Date.now());
   const user=session ? onlineData.users.find(u=>u.id===session.userId) || null : null;
   if(user) onlinePresence.set(user.id,Date.now());
@@ -48,7 +101,7 @@ function setSessionCookie(req,res,token) {
   const secure = req.socket.encrypted || String(req.headers['x-forwarded-proto']||'').split(',')[0].trim()==='https';
   res.setHeader('Set-Cookie', `zakazkar_session=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000${secure?'; Secure':''}`);
 }
-function requireUser(req,res) { const user=currentUser(req); if(!user) json(res,401,{error:'Pro chat se přihlaste ke svému účtu.'}); return user; }
+async function requireUser(req,res) { const user=await currentUser(req); if(!user) json(res,401,{error:'Pro chat se přihlaste ke svému účtu.'}); return user; }
 function newId() { return crypto.randomUUID(); }
 const authAttempts = new Map();
 function authRateLimited(req) {
@@ -264,34 +317,47 @@ function sendHtml(res) {
 async function handleOnlineApi(req,res,url) {
   try {
     if (req.method==='GET' && url.pathname==='/api/auth/me') {
-      const user=currentUser(req); return user ? json(res,200,{user:publicUser(user)}) : json(res,401,{error:'Nejste přihlášeni.'});
+      const user=await currentUser(req); return user ? json(res,200,{user:publicUser(user)}) : json(res,401,{error:'Nejste přihlášeni.'});
     }
     if (req.method==='POST' && ['/api/auth/register','/api/auth/login'].includes(url.pathname)) {
       if(authRateLimited(req)) return json(res,429,{error:'Příliš mnoho pokusů. Zkuste to za chvíli.'});
       const input=await readJson(req), email=String(input.email||'').trim().toLowerCase(), password=String(input.password||'');
       if(!/^\S+@\S+\.\S+$/.test(email)||email.length>254) return json(res,400,{error:'Zadejte platnou e-mailovou adresu.'});
       if(password.length<10||password.length>200) return json(res,400,{error:'Heslo musí mít 10 až 200 znaků.'});
-      let user=onlineData.users.find(u=>u.email===email);
+      let user=dbPool
+        ? (await dbPool.query('SELECT id,name,email,role,password_hash AS "passwordHash",salt,created FROM app_users WHERE email=$1',[email])).rows[0]
+        : onlineData.users.find(u=>u.email===email);
       if(url.pathname==='/api/auth/register') {
         if(user) return json(res,409,{error:'Účet s tímto e-mailem už existuje. Přihlaste se.'});
         const salt=crypto.randomBytes(16).toString('hex');
         const name=String(input.name||email.split('@')[0]).trim().slice(0,100)||email.split('@')[0];
-        user={id:newId(),name,email,role:onlineData.users.length===0?'admin':'user',passwordHash:crypto.scryptSync(password,salt,64).toString('hex'),salt,created:Date.now()};
+        const count=dbPool ? Number((await dbPool.query('SELECT COUNT(*) AS count FROM app_users')).rows[0].count) : onlineData.users.length;
+        user={id:newId(),name,email,role:count===0?'admin':'user',passwordHash:crypto.scryptSync(password,salt,64).toString('hex'),salt,created:Date.now()};
+        if(dbPool) {
+          try { await dbPool.query('INSERT INTO app_users(id,name,email,role,password_hash,salt,created) VALUES($1,$2,$3,$4,$5,$6,$7)',[user.id,user.name,user.email,user.role,user.passwordHash,user.salt,user.created]); }
+          catch(error) { if(error.code==='23505')return json(res,409,{error:'Účet s tímto e-mailem už existuje. Přihlaste se.'}); throw error; }
+        }
         onlineData.users.push(user);
       } else {
         if(!user||crypto.scryptSync(password,user.salt,64).toString('hex')!==user.passwordHash) return json(res,401,{error:'E-mail nebo heslo není správné.'});
+        if(!onlineData.users.some(u=>u.id===user.id)) onlineData.users.push(user);
       }
       const token=crypto.randomBytes(32).toString('base64url');
       onlineData.sessions=onlineData.sessions.filter(s=>s.expires>Date.now()&&s.userId!==user.id);
-      onlineData.sessions.push({tokenHash:sha256(token),userId:user.id,expires:Date.now()+30*24*60*60*1000});
+      const session={tokenHash:sha256(token),userId:user.id,expires:Date.now()+30*24*60*60*1000};
+      if(dbPool) {
+        await dbPool.query('DELETE FROM app_sessions WHERE user_id=$1',[user.id]);
+        await dbPool.query('INSERT INTO app_sessions(token_hash,user_id,expires) VALUES($1,$2,$3)',[session.tokenHash,session.userId,session.expires]);
+      }
+      onlineData.sessions.push(session);
       onlinePresence.set(user.id,Date.now()); saveOnlineData(); setSessionCookie(req,res,token); return json(res,200,{user:publicUser(user)});
     }
     if (req.method==='POST' && url.pathname==='/api/auth/logout') {
-      const token=getCookie(req,'zakazkar_session'), session=onlineData.sessions.find(s=>s.tokenHash===sha256(token)); if(session)onlinePresence.delete(session.userId); onlineData.sessions=onlineData.sessions.filter(s=>s.tokenHash!==sha256(token)); saveOnlineData();
+      const token=getCookie(req,'zakazkar_session'), tokenHash=sha256(token), session=onlineData.sessions.find(s=>s.tokenHash===tokenHash); if(session)onlinePresence.delete(session.userId); if(dbPool)await dbPool.query('DELETE FROM app_sessions WHERE token_hash=$1',[tokenHash]); onlineData.sessions=onlineData.sessions.filter(s=>s.tokenHash!==tokenHash); saveOnlineData();
       res.setHeader('Set-Cookie','zakazkar_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0'); return json(res,200,{ok:true});
     }
     if (url.pathname.startsWith('/api/feed/')) {
-      const user=requireUser(req,res); if(!user) return;
+      const user=await requireUser(req,res); if(!user) return;
       const match=url.pathname.match(/^\/api\/feed\/posts(?:\/([^/]+)(?:\/(like|comments|share))?)?$/);
       if(!match)return json(res,404,{error:'Nenalezeno.'});
       const [,postId,action]=match;
@@ -324,16 +390,22 @@ async function handleOnlineApi(req,res,url) {
       }
     }
     if (url.pathname.startsWith('/api/chat/')) {
-      const user=requireUser(req,res); if(!user) return;
+      const user=await requireUser(req,res); if(!user) return;
       if(req.method==='GET'&&url.pathname==='/api/chat/users') {
         const query=String(url.searchParams.get('q')||'').trim().toLowerCase();
         if(query.length<2) return json(res,200,{users:[]});
-        const users=onlineData.users.filter(u=>u.id!==user.id&&(u.email.includes(query)||u.name.toLowerCase().includes(query))).slice(0,20).map(u=>({...publicUser(u),online:Date.now()-(onlinePresence.get(u.id)||0)<45000}));
+        const found=dbPool
+          ? (await dbPool.query('SELECT id,name,email,role FROM app_users WHERE id<>$1 AND (LOWER(email) LIKE $2 OR LOWER(name) LIKE $2) ORDER BY name LIMIT 20',[user.id,`%${query}%`])).rows
+          : onlineData.users.filter(u=>u.id!==user.id&&(u.email.includes(query)||u.name.toLowerCase().includes(query))).slice(0,20);
+        const users=found.map(u=>({...publicUser(u),online:Date.now()-(onlinePresence.get(u.id)||0)<45000}));
         return json(res,200,{users});
       }
       if(req.method==='GET'&&url.pathname==='/api/chat/threads') {
         const peers=new Map();
-        for(const m of onlineData.messages) if(m.from===user.id||m.to===user.id) {
+        const allMessages=dbPool
+          ? (await dbPool.query('SELECT id,sender_id AS "from",recipient_id AS "to",body AS text,created AS ts,read_at AS "readAt" FROM chat_messages WHERE sender_id=$1 OR recipient_id=$1 ORDER BY created DESC LIMIT 5000',[user.id])).rows.map(m=>({...m,ts:Number(m.ts),readAt:m.readAt===null?null:Number(m.readAt)}))
+          : onlineData.messages;
+        for(const m of allMessages) if(m.from===user.id||m.to===user.id) {
           const peerId=m.from===user.id?m.to:m.from, old=peers.get(peerId)||{peerId,latest:m,unread:0};
           if(m.ts>old.latest.ts) old.latest=m; if(m.to===user.id&&!m.readAt) old.unread++; peers.set(peerId,old);
         }
@@ -342,16 +414,23 @@ async function handleOnlineApi(req,res,url) {
       }
       if(req.method==='GET'&&url.pathname==='/api/chat/messages') {
         const peerId=String(url.searchParams.get('with')||'');
-        if(!onlineData.users.some(u=>u.id===peerId)||peerId===user.id) return json(res,404,{error:'Účet nebyl nalezen.'});
-        const messages=onlineData.messages.filter(m=>(m.from===user.id&&m.to===peerId)||(m.from===peerId&&m.to===user.id)).sort((a,b)=>a.ts-b.ts);
+        const peerExists=dbPool ? (await dbPool.query('SELECT 1 FROM app_users WHERE id=$1',[peerId])).rowCount>0 : onlineData.users.some(u=>u.id===peerId);
+        if(!peerExists||peerId===user.id) return json(res,404,{error:'Účet nebyl nalezen.'});
+        const messages=dbPool
+          ? (await dbPool.query('SELECT id,sender_id AS "from",recipient_id AS "to",body AS text,created AS ts,read_at AS "readAt" FROM chat_messages WHERE (sender_id=$1 AND recipient_id=$2) OR (sender_id=$2 AND recipient_id=$1) ORDER BY created DESC LIMIT 300',[user.id,peerId])).rows.map(m=>({...m,ts:Number(m.ts),readAt:m.readAt===null?null:Number(m.readAt)})).reverse()
+          : onlineData.messages.filter(m=>(m.from===user.id&&m.to===peerId)||(m.from===peerId&&m.to===user.id)).sort((a,b)=>a.ts-b.ts);
         let changed=false; for(const m of messages) if(m.to===user.id&&!m.readAt){m.readAt=Date.now();changed=true;} if(changed)saveOnlineData();
+        if(changed&&dbPool) await dbPool.query('UPDATE chat_messages SET read_at=$1 WHERE recipient_id=$2 AND sender_id=$3 AND read_at IS NULL',[Date.now(),user.id,peerId]);
         return json(res,200,{messages:messages.slice(-300).map(m=>({id:m.id,from:m.from,to:m.to,text:m.text,ts:m.ts,readAt:m.readAt||null}))});
       }
       if(req.method==='POST'&&url.pathname==='/api/chat/messages') {
         const input=await readJson(req,8*1024), peerId=String(input.to||''), text=String(input.text||'').trim();
-        if(!onlineData.users.some(u=>u.id===peerId)||peerId===user.id) return json(res,404,{error:'Vyberte platného příjemce.'});
+        const peerExists=dbPool ? (await dbPool.query('SELECT 1 FROM app_users WHERE id=$1',[peerId])).rowCount>0 : onlineData.users.some(u=>u.id===peerId);
+        if(!peerExists||peerId===user.id) return json(res,404,{error:'Vyberte platného příjemce.'});
         if(!text||text.length>2000) return json(res,400,{error:'Zpráva musí mít 1 až 2 000 znaků.'});
-        const message={id:newId(),from:user.id,to:peerId,text,ts:Date.now(),readAt:null}; onlineData.messages.push(message); saveOnlineData();
+        const message={id:newId(),from:user.id,to:peerId,text,ts:Date.now(),readAt:null};
+        if(dbPool) await dbPool.query('INSERT INTO chat_messages(id,sender_id,recipient_id,body,created,read_at) VALUES($1,$2,$3,$4,$5,NULL)',[message.id,message.from,message.to,message.text,message.ts]);
+        onlineData.messages.push(message); saveOnlineData();
         return json(res,201,{message:{id:message.id,from:message.from,to:message.to,text:message.text,ts:message.ts,readAt:null}});
       }
     }
@@ -360,7 +439,7 @@ async function handleOnlineApi(req,res,url) {
 }
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, `http://${HOST}:${PORT}`);
-  if (req.method === 'GET' && url.pathname === '/api/health') return json(res, 200, { ok:true, scanner:true, chat:true, sources:SOURCES.length, app:`http://127.0.0.1:${PORT}/` });
+  if (req.method === 'GET' && url.pathname === '/api/health') return json(res, 200, { ok:true, scanner:true, chat:true, database:dbPool?'postgresql':'local-file', sources:SOURCES.length, app:`http://127.0.0.1:${PORT}/` });
   if (req.method === 'GET' && url.pathname === '/mobilni-zakazkar.html') {
     try { return send(res,200,fs.readFileSync(path.join(ROOT,'mobilni-zakazkar.html')),'text/html; charset=utf-8'); }
     catch { return json(res,404,{error:'Mobilní stránka nebyla nalezena.'}); }
@@ -394,5 +473,8 @@ const server = http.createServer((req, res) => {
   }
   return json(res, 404, { error:'Nenalezeno.' });
 });
-server.listen(PORT, HOST, () => console.log(JSON.stringify({ ok:true, scanner:true, sources:SOURCES.length, app:`http://${HOST}:${PORT}/` })));
+initializeDatabase().then(()=>{
+  if(!dbPool) console.warn('DATABASE_URL není nastaveno; účty a zprávy se ukládají jen do místního souboru.');
+  server.listen(PORT, HOST, () => console.log(JSON.stringify({ ok:true, scanner:true, database:dbPool?'postgresql':'local-file', sources:SOURCES.length, app:`http://${HOST}:${PORT}/` })));
+}).catch(error=>{console.error('Databázi se nepodařilo připravit: '+error.message);process.exit(1);});
 server.on('error', error => { console.error('Zakázkář server: ' + error.message); process.exit(1); });
