@@ -1,0 +1,8 @@
+{
+  "name": "zakazkar",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Zakazkar web app and mobile opportunity scanner",
+  "engines": { "node": ">=20" },
+  "scripts": { "start": "node server.js" }
+}

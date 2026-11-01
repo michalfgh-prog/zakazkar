@@ -1,0 +1,17 @@
+OPRAVA NASAZENÍ ZAKÁZKÁŘE NA RENDERU
+
+Chyba na snímku vznikla proto, že Render spustil npm install, ale v kořeni připojeného GitHub repozitáře nenašel package.json. V tomto balíčku je package.json ve správném umístění. Aplikace nepoužívá žádné externí npm balíčky.
+
+NAHRÁNÍ DO GITHUBU
+1. Rozbalte tento ZIP.
+2. Nahrajte OBSAH rozbalené složky přímo do kořene repozitáře zakazkar. Soubory package.json, server.js, zakazkar-vylepsena.html a mobilni-zakazkar.html musí být vedle sebe. Nedávejte je do další podsložky.
+3. V Renderu otevřete nastavení služby. Root Directory nechte prázdné.
+4. Nastavte Build Command na: npm install
+5. Nastavte Start Command na: npm start
+6. Uložte změny a nechte službu znovu nasadit.
+7. Po úspěšném nasazení otevřete veřejnou adresu Renderu. Mobilní stránka bude na adrese /mobilni-zakazkar.html.
+
+Server používá PORT z Renderu a naslouchá na 0.0.0.0.
+
+DŮLEŽITÉ PRO ONLINE CHAT
+Render má ve výchozím stavu dočasný disk. Bez nastavení trvalého disku se účty a zprávy v souboru data/online-data.json mohou ztratit po restartu nebo novém nasazení. Pro zachování dat připojte k placené webové službě Render disk s cestou /var/data a nastavte proměnnou DATA_DIR=/var/data. Než přejdete na placený plán, zkontrolujte cenu v Renderu. Free služba se po nečinnosti uspává a neudrží tento soubor trvale.

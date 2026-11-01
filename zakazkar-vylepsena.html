@@ -1,0 +1,1720 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<title>Zakázkář – vyhledávání poptávek od zákazníků</title>
+<meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="Ukázková aplikace Zakázkář pro sledování poptávek a správu obchodních příležitostí v Moravskoslezském kraji."><meta name="theme-color" content="#f5f7fb">
+<style>
+  :root {
+    --bg: #06080f;
+    --bg2: rgba(16, 22, 40, 0.62);
+    --panel: linear-gradient(150deg, rgba(255,255,255,0.085), rgba(255,255,255,0.028));
+    --panel2: rgba(255,255,255,0.09);
+    --border: rgba(255,255,255,0.12);
+    --border2: rgba(255,255,255,0.2);
+    --glass-hi: inset 0 1px 0 rgba(255,255,255,0.16);
+    --glass-blur: blur(22px) saturate(150%);
+    --txt: #eef1f8;
+    --muted: #97a2b8;
+    --muted2: #66718a;
+    --acc: #5b8cff;
+    --acc2: #7aa5ff;
+    --acc-soft: rgba(91,140,255,0.14);
+    --acc-glow: rgba(91,140,255,0.35);
+    --green: #2fbf71;
+    --green-soft: rgba(47,191,113,0.12);
+    --amber: #f5a623;
+    --red: #ff5c72;
+    --star: #f1c40f;
+    --radius: 16px;
+    --shadow: 0 20px 60px rgba(0,0,0,0.45);
+    --font: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0; min-height: 100vh; background: var(--bg); color: var(--txt);
+    font: 15px/1.6 var(--font); -webkit-font-smoothing: antialiased; overflow-x: hidden;
+  }
+
+  .bg-orbs { position:fixed; inset:0; z-index:-2; overflow:hidden; background:var(--bg); }
+  .orb { position:absolute; border-radius:50%; filter:blur(110px); opacity:.5; animation:drift 28s ease-in-out infinite alternate; }
+  .o1 { top:-12%; left:-8%; width:46vw; height:46vw; background:radial-gradient(circle, #3a5bbf, transparent 70%); }
+  .o2 { bottom:-18%; right:-10%; width:52vw; height:52vw; background:radial-gradient(circle, #6b2b9e, transparent 70%); animation-delay:-9s; }
+  .o3 { top:30%; left:44%; width:36vw; height:36vw; background:radial-gradient(circle, #1a6b5c, transparent 70%); animation-delay:-18s; }
+  .o4 { bottom:6%; left:4%; width:26vw; height:26vw; background:radial-gradient(circle, #a34c2b, transparent 70%); opacity:.3; animation-delay:-22s; }
+  @keyframes drift { 0% { transform:translate(0,0) scale(1); } 100% { transform:translate(6%,9%) scale(1.12); } }
+  @media (prefers-reduced-motion: reduce) { .orb { animation:none; } }
+  a { color: var(--acc2); }
+  button { font: inherit; }
+  input, select, textarea { font: inherit; }
+
+  /* ---------- shared ---------- */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 11px 22px; border: 1px solid transparent; border-radius: 12px;
+    background: linear-gradient(135deg, #4f8cff, #355fd6); color: #fff;
+    font-weight: 600; font-size: 14px; cursor: pointer; text-decoration: none;
+    box-shadow: 0 6px 20px var(--acc-glow); transition: all .2s ease; white-space: nowrap;
+  }
+  .btn:hover { transform: translateY(-1px); box-shadow: 0 10px 28px rgba(79,140,255,.5); }
+  .btn.ghost { background: linear-gradient(145deg, rgba(255,255,255,.12), rgba(255,255,255,.045)); border-color: rgba(255,255,255,.2); color: var(--txt); box-shadow: var(--glass-hi), 0 4px 18px rgba(0,0,0,.25); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+  .btn.ghost:hover { background: linear-gradient(145deg, rgba(255,255,255,.18), rgba(255,255,255,.08)); }
+  .btn.small { padding: 8px 14px; font-size: 13px; border-radius: 10px; }
+  .btn.danger { background: linear-gradient(135deg,#ff6b7e,#d63a52); box-shadow: 0 6px 20px rgba(255,92,114,.3); }
+  .btn:disabled { opacity:.45; cursor: not-allowed; transform:none; box-shadow:none; }
+
+  .badge { display:inline-flex; align-items:center; gap:6px; font-size:11px; font-weight:700; letter-spacing:.4px; padding:3px 10px; border-radius:99px; }
+  .badge.new { background: var(--green); color:#04220f; }
+  .badge.plan { background: var(--acc-soft); color: var(--acc2); border:1px solid rgba(91,140,255,.3); }
+  .badge.gold { background: rgba(241,196,15,.14); color:#ffd75e; border:1px solid rgba(241,196,15,.35); }
+
+  .chip { display:inline-flex; align-items:center; gap:6px; font-size:12px; color:var(--muted); background:rgba(255,255,255,.07); border:1px solid var(--border); padding:5px 12px; border-radius:99px; backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); box-shadow:var(--glass-hi); }
+
+  .field label { display:block; font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:.6px; color:var(--muted); margin-bottom:7px; }
+  .field input, .field select, .field textarea {
+    width:100%; padding:12px 14px; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.14);
+    border-radius:12px; color:var(--txt); transition:all .25s; backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.1);
+  }
+  .field input:focus, .field select:focus, .field textarea:focus { outline:none; border-color:var(--acc); box-shadow:0 0 0 3px var(--acc-glow); }
+
+  /* ---------- landing ---------- */
+  .landing { position:relative; }
+  .landing::before {
+    content:""; position:fixed; inset:0; z-index:-1; pointer-events:none;
+    background: linear-gradient(180deg, rgba(6,8,15,.25), rgba(6,8,15,0) 30%, rgba(6,8,15,.4));
+  }
+  .nav {
+    position:sticky; top:0; z-index:50; display:flex; align-items:center; gap:28px;
+    padding:16px 32px; background:rgba(12,16,28,.5); backdrop-filter:blur(24px) saturate(150%); -webkit-backdrop-filter:blur(24px) saturate(150%);
+    border-bottom:1px solid var(--border); box-shadow: 0 10px 30px rgba(0,0,0,.3);
+  }
+  .logo { display:flex; align-items:center; gap:10px; font-weight:800; font-size:17px; letter-spacing:.3px; text-decoration:none; color:var(--txt); }
+  .logo .mark { width:30px; height:30px; border-radius:9px; background:linear-gradient(135deg,#4f8cff,#7b4dff); display:flex; align-items:center; justify-content:center; font-size:15px; box-shadow:0 4px 14px var(--acc-glow); }
+  .nav-links { display:flex; gap:24px; margin-left:auto; align-items:center; }
+  .nav-links a { color:var(--muted); text-decoration:none; font-size:14px; font-weight:500; transition:color .2s; }
+  .nav-links a:hover { color:#fff; }
+  @media (max-width: 860px) { .nav-links a.hide-m { display:none; } }
+
+  .hero { max-width:1120px; margin:0 auto; padding:88px 24px 48px; display:grid; grid-template-columns:1.05fr .95fr; gap:48px; align-items:center; }
+  @media (max-width: 960px) { .hero { grid-template-columns:1fr; padding-top:56px; } }
+  .hero h1 { font-size:46px; line-height:1.12; font-weight:800; margin:18px 0 18px; letter-spacing:-1px; }
+  @media (max-width: 600px) { .hero h1 { font-size:33px; } }
+  .hero h1 .grad { background:linear-gradient(90deg,#7aa5ff,#b48bff); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .hero p.lead { font-size:17px; color:var(--muted); max-width:520px; margin:0 0 30px; }
+  .hero-cta { display:flex; gap:14px; flex-wrap:wrap; align-items:center; }
+  .trust { display:flex; gap:22px; margin-top:34px; flex-wrap:wrap; }
+  .trust div { display:flex; align-items:center; gap:8px; font-size:13px; color:var(--muted); }
+
+  .hero-shot {
+    background:linear-gradient(160deg, rgba(255,255,255,.1), rgba(255,255,255,.03));
+    border:1px solid rgba(255,255,255,.18); border-radius:22px; padding:22px;
+    box-shadow:var(--shadow), inset 0 1px 0 rgba(255,255,255,.2);
+    backdrop-filter:var(--glass-blur); -webkit-backdrop-filter:var(--glass-blur);
+    position:relative; overflow:hidden;
+  }
+  .hero-shot::after { content:""; position:absolute; top:0; left:10%; right:10%; height:1px; background:linear-gradient(90deg, transparent, rgba(255,255,255,.35), transparent); }
+  .hero-shot .browser-dot { display:flex; gap:6px; margin-bottom:16px; }
+  .hero-shot .browser-dot span { width:10px; height:10px; border-radius:50%; background:rgba(255,255,255,.15); }
+  .mock-row { display:flex; gap:12px; align-items:center; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12); border-radius:14px; padding:13px 15px; margin-bottom:10px; animation:rise .6s ease both; box-shadow:inset 0 1px 0 rgba(255,255,255,.12); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); }
+  .mock-row:nth-child(3){animation-delay:.1s} .mock-row:nth-child(4){animation-delay:.2s} .mock-row:nth-child(5){animation-delay:.3s} .mock-row:nth-child(6){animation-delay:.45s}
+  @keyframes rise { from {opacity:0; transform:translateY(10px);} to {opacity:1; transform:none;} }
+  .mock-row .dot { width:34px; height:34px; border-radius:10px; flex-shrink:0; }
+  .mock-row b { font-size:13.5px; display:block; font-weight:600; }
+  .mock-row small { font-size:11.5px; color:var(--muted); }
+  .mock-row .price { margin-left:auto; font-weight:700; font-size:13px; color:var(--green); }
+
+  section.block { max-width:1120px; margin:0 auto; padding:72px 24px; }
+  .block h2.title { font-size:32px; font-weight:800; letter-spacing:-.5px; margin:0 0 10px; text-align:center; }
+  .block p.sub { color:var(--muted); text-align:center; max-width:600px; margin:0 auto 48px; font-size:16px; }
+
+  .features { display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:18px; }
+  .feature { background:var(--panel); backdrop-filter:var(--glass-blur); -webkit-backdrop-filter:var(--glass-blur); border:1px solid var(--border); border-radius:var(--radius); padding:26px; transition:all .25s; box-shadow:var(--glass-hi); }
+  .feature:hover { transform:translateY(-4px); border-color:rgba(255,255,255,.24); box-shadow:var(--glass-hi), 0 16px 40px rgba(0,0,0,.4), 0 0 34px rgba(91,140,255,.12); }
+  .feature .ico { width:44px; height:44px; border-radius:12px; background:var(--acc-soft); display:flex; align-items:center; justify-content:center; font-size:21px; margin-bottom:16px; }
+  .feature h3 { margin:0 0 8px; font-size:16px; }
+  .feature p { margin:0; color:var(--muted); font-size:13.5px; }
+
+  .steps { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:18px; counter-reset:step; }
+  .step { background:var(--panel); backdrop-filter:var(--glass-blur); -webkit-backdrop-filter:var(--glass-blur); border:1px solid var(--border); border-radius:var(--radius); padding:26px; position:relative; box-shadow:var(--glass-hi); }
+  .step .num { font-size:13px; font-weight:800; color:var(--acc2); background:var(--acc-soft); width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; margin-bottom:14px; }
+
+  .stats-band { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:18px; text-align:center; }
+  .stat b { font-size:38px; font-weight:800; display:block; background:linear-gradient(90deg,#7aa5ff,#b48bff); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .stat span { color:var(--muted); font-size:13.5px; }
+
+  /* pricing */
+  .plans { display:grid; grid-template-columns:repeat(auto-fit,minmax(270px,1fr)); gap:20px; align-items:stretch; }
+  .plan { background:var(--panel); backdrop-filter:var(--glass-blur); -webkit-backdrop-filter:var(--glass-blur); border:1px solid var(--border); border-radius:20px; padding:30px; display:flex; flex-direction:column; position:relative; transition:all .25s; box-shadow:var(--glass-hi); }
+  .plan:hover { transform:translateY(-4px); box-shadow:var(--glass-hi), 0 18px 44px rgba(0,0,0,.42); }
+  .plan.featured { border:1px solid rgba(91,140,255,.55); background:linear-gradient(170deg, rgba(91,140,255,.14), rgba(255,255,255,.04)); box-shadow:0 20px 60px rgba(79,140,255,.22), var(--glass-hi); }
+  .plan .pop { position:absolute; top:-13px; left:50%; transform:translateX(-50%); }
+  .plan h3 { margin:0 0 4px; font-size:18px; }
+  .plan .desc { color:var(--muted); font-size:13px; min-height:40px; }
+  .plan .amount { font-size:40px; font-weight:800; margin:14px 0 2px; }
+  .plan .amount small { font-size:14px; font-weight:500; color:var(--muted); }
+  .plan ul { list-style:none; margin:20px 0 26px; padding:0; display:grid; gap:11px; }
+  .plan li { font-size:13.5px; color:var(--muted); display:flex; gap:10px; align-items:flex-start; }
+  .plan li.ok { color:var(--txt); }
+  .plan li .tick { color:var(--green); font-weight:800; }
+  .plan li .cross { color:var(--muted); opacity:.6; font-weight:800; }
+  .plan .btn { width:100%; margin-top:auto; }
+
+  .testimonials { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:18px; }
+  .testimonial { background:var(--panel); backdrop-filter:var(--glass-blur); -webkit-backdrop-filter:var(--glass-blur); border:1px solid var(--border); border-radius:var(--radius); padding:26px; box-shadow:var(--glass-hi); }
+  .testimonial .stars { color:var(--star); letter-spacing:2px; font-size:14px; margin-bottom:12px; }
+  .testimonial p { font-size:14px; margin:0 0 16px; }
+  .testimonial .who { display:flex; gap:12px; align-items:center; }
+  .testimonial .avatar { width:40px; height:40px; border-radius:50%; background:linear-gradient(135deg,#4f8cff,#7b4dff); display:flex; align-items:center; justify-content:center; font-weight:800; font-size:14px; }
+  .testimonial .who b { font-size:13.5px; display:block; }
+  .testimonial .who span { font-size:12px; color:var(--muted); }
+
+  .faq-item { background:var(--panel); backdrop-filter:var(--glass-blur); -webkit-backdrop-filter:var(--glass-blur); border:1px solid var(--border); border-radius:14px; margin-bottom:10px; overflow:hidden; box-shadow:var(--glass-hi); }
+  .faq-item button.q { width:100%; text-align:left; background:none; border:none; color:var(--txt); padding:18px 22px; font-weight:600; font-size:14.5px; cursor:pointer; display:flex; justify-content:space-between; gap:12px; align-items:center; }
+  .faq-item .a { max-height:0; overflow:hidden; transition:max-height .3s ease; color:var(--muted); font-size:14px; }
+  .faq-item .a div { padding:0 22px 18px; }
+  .faq-item.open .a { max-height:300px; }
+
+  .cta-band { background:linear-gradient(135deg, rgba(79,140,255,.16), rgba(123,77,255,.12)); border:1px solid rgba(91,140,255,.35); border-radius:24px; padding:56px 32px; text-align:center; }
+  .cta-band h2 { font-size:30px; margin:0 0 10px; font-weight:800; }
+  .cta-band p { color:var(--muted); margin:0 0 28px; }
+
+  footer.site { border-top:1px solid var(--border); padding:40px 32px 60px; color:var(--muted); font-size:13px; }
+  footer.site .inner { max-width:1120px; margin:0 auto; display:flex; justify-content:space-between; gap:24px; flex-wrap:wrap; }
+
+  /* ---------- auth modal ---------- */
+  .overlay { position:fixed; inset:0; background:rgba(5,7,12,.72); backdrop-filter:blur(8px); z-index:100; display:none; align-items:center; justify-content:center; padding:20px; }
+  .overlay.show { display:flex; }
+  .modal { background:var(--bg2); backdrop-filter:blur(30px) saturate(150%); -webkit-backdrop-filter:blur(30px) saturate(150%); border:1px solid rgba(255,255,255,.18); border-radius:20px; padding:34px; width:100%; max-width:420px; box-shadow:var(--shadow), var(--glass-hi); animation:pop .25s ease; }
+  @keyframes pop { from {opacity:0; transform:scale(.96) translateY(8px);} to {opacity:1; transform:none;} }
+  .modal h3 { margin:0 0 6px; font-size:20px; }
+  .modal p.hint { color:var(--muted); font-size:13px; margin:0 0 22px; }
+  .modal .field { margin-bottom:14px; }
+  .modal .switch-link { text-align:center; margin-top:16px; font-size:13px; color:var(--muted); }
+  .modal .err { color:var(--red); font-size:13px; margin:0 0 12px; display:none; }
+
+
+  /* ---------- app ---------- */
+  .app { display:grid; grid-template-columns:250px 1fr; min-height:100vh; }
+  @media (max-width: 900px) { .app { grid-template-columns:1fr; } .sidebar { position:fixed; left:-270px; z-index:60; transition:left .25s; height:100vh; } .sidebar.open { left:0; } }
+  .sidebar { background:var(--bg2); backdrop-filter:blur(28px) saturate(150%); -webkit-backdrop-filter:blur(28px) saturate(150%); border-right:1px solid rgba(255,255,255,.1); padding:22px 14px; display:flex; flex-direction:column; gap:4px; }
+  .side-brand { display:flex; align-items:center; gap:10px; padding:6px 10px 22px; font-weight:800; font-size:15.5px; }
+  .nav-item { display:flex; align-items:center; gap:12px; padding:11px 14px; border-radius:12px; color:var(--muted); cursor:pointer; font-weight:500; font-size:14px; transition:all .18s; border:1px solid transparent; }
+  .nav-item:hover { color:var(--txt); background:rgba(255,255,255,.08); box-shadow:inset 0 1px 0 rgba(255,255,255,.1); }
+  .nav-item.active { color:#fff; background:linear-gradient(145deg, rgba(91,140,255,.25), rgba(91,140,255,.1)); border-color:rgba(91,140,255,.3); box-shadow:inset 0 1px 0 rgba(255,255,255,.15); }
+  .nav-item .n { margin-left:auto; }
+  .nav-item .cnt { background:var(--green); color:#04220f; font-size:11px; font-weight:800; padding:1px 8px; border-radius:99px; }
+  .side-foot { margin-top:auto; padding:14px; border-top:1px solid var(--border); }
+  .plan-mini { background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:14px; box-shadow:var(--glass-hi); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); }
+  .plan-mini b { display:block; font-size:13.5px; }
+  .plan-mini span { font-size:12px; color:var(--muted); }
+
+  .main { padding:26px 32px; max-width:1240px; }
+  @media (max-width: 600px) { .main { padding:18px 16px; } }
+  .topbar { display:flex; align-items:center; gap:16px; margin-bottom:26px; flex-wrap:wrap; }
+  .topbar h1 { font-size:22px; font-weight:700; margin:0; }
+  .topbar .crumb { color:var(--muted); font-size:13px; margin-top:2px; }
+  .topbar-right { margin-left:auto; display:flex; gap:12px; align-items:center; }
+  .avatar-btn { width:40px; height:40px; border-radius:50%; border:1px solid var(--border2); background:linear-gradient(135deg,#4f8cff,#7b4dff); color:#fff; font-weight:800; cursor:pointer; font-size:14px; }
+  .burger { display:none; background:var(--panel2); border:1px solid var(--border); color:var(--txt); border-radius:10px; width:40px; height:40px; cursor:pointer; }
+  @media (max-width:900px){ .burger { display:flex; align-items:center; justify-content:center; } }
+
+  .grid-stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:16px; margin-bottom:26px; }
+  .stat-card { background:var(--panel); backdrop-filter:var(--glass-blur); -webkit-backdrop-filter:var(--glass-blur); border:1px solid var(--border); border-radius:var(--radius); padding:22px; position:relative; overflow:hidden; box-shadow:var(--glass-hi); transition:all .25s; }
+  .stat-card:hover { border-color:rgba(255,255,255,.2); }
+  .stat-card .lbl { font-size:12px; text-transform:uppercase; letter-spacing:.7px; color:var(--muted); font-weight:600; }
+  .stat-card .val { font-size:32px; font-weight:800; margin-top:8px; }
+  .stat-card .delta { font-size:12.5px; margin-top:6px; }
+  .stat-card .delta.up { color:var(--green); } .stat-card .delta.warn { color:var(--amber); } .stat-card .delta.mut { color:var(--muted); }
+
+  .card { background:var(--panel); backdrop-filter:var(--glass-blur); -webkit-backdrop-filter:var(--glass-blur); border:1px solid var(--border); border-radius:var(--radius); padding:26px; box-shadow:var(--glass-hi); }
+  .card h2.card-title { font-size:13px; text-transform:uppercase; letter-spacing:1px; color:var(--muted); margin:0 0 18px; font-weight:700; }
+  .card + .card { margin-top:20px; }
+
+  .row { display:flex; gap:14px; flex-wrap:wrap; align-items:flex-end; }
+  .row .flex1 { flex:1; min-width:240px; }
+
+  .toolbar { display:flex; gap:14px; flex-wrap:wrap; align-items:center; justify-content:space-between; margin-bottom:18px; }
+  .tabs { display:flex; background:rgba(255,255,255,.06); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); border:1px solid var(--border); border-radius:12px; padding:4px; box-shadow:inset 0 1px 0 rgba(255,255,255,.1); }
+  .tab { padding:8px 16px; border-radius:9px; font-size:13px; font-weight:600; color:var(--muted); cursor:pointer; transition:all .2s; }
+  .tab.active { background:var(--acc); color:#fff; box-shadow:0 2px 10px var(--acc-glow); }
+  .search-box input { padding:10px 14px; border-radius:10px; width:100%; background:rgba(255,255,255,.06); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); border:1px solid rgba(255,255,255,.14); color:var(--txt); font-size:13.5px; box-shadow:inset 0 1px 0 rgba(255,255,255,.08); }
+  .search-box { flex:1; min-width:180px; max-width:320px; }
+
+  .leads { display:grid; gap:12px; }
+  /* Zakázky v přehledné mřížce po čtyřech */
+  .leads.jobs-grid { grid-template-columns:repeat(4,minmax(0,1fr)); align-items:stretch; }
+  .leads.jobs-grid > .lead { min-width:0; flex-direction:column; align-items:stretch; justify-content:space-between; gap:15px; padding:15px; }
+  .leads.jobs-grid > .lead h3 { overflow-wrap:anywhere; }
+  .leads.jobs-grid .lead-actions { display:grid; grid-template-columns:repeat(4,32px); gap:7px; width:100%; }
+  .leads.jobs-grid .status-select { grid-column:1/-1; width:100%; min-width:0; }
+  .leads.jobs-grid .icon-btn { width:32px; height:32px; }
+  @media(max-width:1050px){.leads.jobs-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
+  @media(max-width:560px){.leads.jobs-grid{grid-template-columns:minmax(0,1fr);}}
+
+  .lead { background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.1); border-radius:14px; padding:18px 20px; display:flex; justify-content:space-between; align-items:flex-start; gap:16px; transition:all .2s; backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); box-shadow:inset 0 1px 0 rgba(255,255,255,.08); }
+  .lead:hover { background:rgba(255,255,255,.09); border-color:rgba(255,255,255,.22); box-shadow:inset 0 1px 0 rgba(255,255,255,.14), 0 10px 28px rgba(0,0,0,.35); }
+  .lead.is-new { border-color:rgba(47,191,113,.4); background:linear-gradient(90deg, rgba(47,191,113,.07), rgba(255,255,255,.02)); box-shadow:inset 4px 0 0 var(--green); }
+  .lead h3 { margin:0; font-size:15px; font-weight:600; line-height:1.45; }
+  .lead-description { margin:7px 0 0; color:var(--muted); font-size:12px; line-height:1.45; }
+  .lead h3 a { color:var(--txt); text-decoration:none; } .lead h3 a:hover { color:var(--acc2); }
+  .lead .meta { display:flex; gap:10px; flex-wrap:wrap; font-size:12px; color:var(--muted); margin-top:9px; align-items:center; }
+  .lead .src { color:var(--acc2); font-weight:700; text-transform:uppercase; letter-spacing:.5px; font-size:11px; background:var(--acc-soft); padding:3px 9px; border-radius:7px; }
+  .lead-actions { display:flex; gap:8px; flex-shrink:0; }
+  .icon-btn { background:rgba(255,255,255,.04); border:1px solid var(--border); width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:var(--muted); cursor:pointer; padding:0; transition:all .2s; box-shadow:inset 0 1px 0 rgba(255,255,255,.1); }
+  .icon-btn:hover { background:rgba(255,255,255,.12); color:#fff; transform:scale(1.08); }
+  .icon-btn.active { color:var(--star); border-color:rgba(241,196,15,.4); background:rgba(241,196,15,.1); }
+
+  .empty { color:var(--muted); text-align:center; padding:44px; font-size:14px; }
+  .empty .big { font-size:36px; margin-bottom:10px; }
+
+  .portal-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:10px; margin-top:18px; padding-top:18px; border-top:1px solid var(--border); }
+  .chk { display:flex; align-items:center; gap:9px; font-size:13px; color:var(--muted); cursor:pointer; transition:color .2s; }
+  .chk:hover { color:var(--txt); }
+  .chk input { width:16px; height:16px; accent-color:var(--acc); cursor:pointer; }
+  .chk .tag { font-size:10px; text-transform:uppercase; letter-spacing:.4px; color:var(--acc2); opacity:.85; background:rgba(91,140,255,.12); padding:1px 7px; border-radius:5px; }
+  .chk .lock { font-size:11px; color:var(--amber); }
+  .chk.disabled { opacity:.45; cursor:not-allowed; }
+
+  .log { font-family:ui-monospace,Consolas,monospace; font-size:11.5px; color:#8b93a3; background:rgba(0,0,0,.3); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); border:1px solid var(--border); border-radius:12px; padding:14px 16px; max-height:130px; overflow-y:auto; white-space:pre-wrap; margin-top:18px; }
+
+  .table { width:100%; border-collapse:collapse; font-size:13.5px; }
+  .table th { text-align:left; font-size:11.5px; text-transform:uppercase; letter-spacing:.6px; color:var(--muted); padding:10px 12px; border-bottom:1px solid var(--border); }
+  .table td { padding:12px; border-bottom:1px solid var(--border); color:var(--txt); }
+  .table tr:last-child td { border-bottom:none; }
+
+  .usage { margin-bottom:10px; }
+  .usage .bar { height:8px; background:rgba(255,255,255,.07); border-radius:99px; overflow:hidden; margin-top:7px; }
+  .usage .bar i { display:block; height:100%; background:linear-gradient(90deg,#4f8cff,#7b4dff); border-radius:99px; transition:width .4s; }
+  .usage .bar i.full { background:linear-gradient(90deg,#f5a623,#ff5c72); }
+  .usage .lbl { display:flex; justify-content:space-between; font-size:12.5px; color:var(--muted); }
+
+  .toast-wrap { position:fixed; bottom:24px; right:24px; z-index:200; display:grid; gap:10px; }
+  .toast { background:var(--bg2); backdrop-filter:blur(24px) saturate(150%); -webkit-backdrop-filter:blur(24px) saturate(150%); border:1px solid rgba(255,255,255,.18); border-left:3px solid var(--acc); border-radius:12px; padding:13px 18px; font-size:13.5px; box-shadow:var(--shadow), var(--glass-hi); animation:slideIn .3s ease; min-width:240px; max-width:340px; }
+  .toast.ok { border-left-color:var(--green); } .toast.warn { border-left-color:var(--amber); } .toast.err { border-left-color:var(--red); }
+  @keyframes slideIn { from {opacity:0; transform:translateX(20px);} to {opacity:1; transform:none;} }
+
+  .switch { position:relative; width:42px; height:24px; flex-shrink:0; }
+  .switch input { opacity:0; width:0; height:0; }
+  .switch i { position:absolute; inset:0; background:rgba(255,255,255,.12); border-radius:99px; cursor:pointer; transition:.25s; }
+  .switch i::after { content:""; position:absolute; top:3px; left:3px; width:18px; height:18px; border-radius:50%; background:#fff; transition:.25s; }
+  .switch input:checked + i { background:var(--acc); }
+  .switch input:checked + i::after { transform:translateX(18px); }
+
+  .setting-row { display:flex; align-items:center; gap:14px; padding:14px 0; border-bottom:1px solid var(--border); }
+  .setting-row:last-child { border-bottom:none; }
+  .setting-row .info { flex:1; }
+  .setting-row .info b { font-size:14px; font-weight:600; display:block; }
+  .setting-row .info span { font-size:12.5px; color:var(--muted); }
+  .lock-tag { font-size:11px; color:var(--amber); background:rgba(245,166,35,.12); border:1px solid rgba(245,166,35,.3); padding:2px 8px; border-radius:6px; }
+
+  /* ---------- CRM & notifikace ---------- */
+  .lead-actions { flex-wrap: wrap; justify-content: flex-end; }
+  .status-select { background:rgba(255,255,255,.06); border:1px solid var(--border); color:var(--txt); font-size:12px; border-radius:8px; padding:7px 8px; cursor:pointer; backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); }
+  .status-select option { background:#12162a; color:#fff; }
+  .st-contacted { color:#7aa5ff; border-color:rgba(91,140,255,.35); }
+  .st-offer { color:#f5a623; border-color:rgba(245,166,35,.35); }
+  .st-won { color:#2fbf71; border-color:rgba(47,191,113,.4); }
+  .st-lost { color:#ff5c72; border-color:rgba(255,92,114,.4); }
+  #bell { position:relative; }
+  #bell-dot { position:absolute; top:-2px; right:-2px; width:10px; height:10px; border-radius:50%; background:var(--green); box-shadow:0 0 8px var(--green); display:none; }
+  .notif-panel { position:fixed; top:74px; right:28px; width:min(360px, calc(100vw - 40px)); max-height:440px; overflow-y:auto; background:var(--bg2); backdrop-filter:blur(30px) saturate(150%); -webkit-backdrop-filter:blur(30px) saturate(150%); border:1px solid rgba(255,255,255,.18); border-radius:16px; box-shadow:var(--shadow), var(--glass-hi); z-index:90; padding:18px; display:none; }
+  .notif-panel.open { display:block; }
+  .notif-item { padding:10px 0; border-bottom:1px solid var(--border); font-size:13px; }
+  .notif-item:last-child { border-bottom:none; }
+  .notif-item.unread { color:var(--txt); }
+  .pipeline-group { margin-bottom:18px; }
+  .pipeline-group h3 { font-size:12px; text-transform:uppercase; letter-spacing:.8px; color:var(--muted); margin:0 0 12px; display:flex; gap:8px; align-items:center; }
+  .cnt2 { background:var(--panel2); border:1px solid var(--border); border-radius:99px; padding:0 9px; font-size:11px; }
+
+  :focus-visible { outline:3px solid var(--acc2); outline-offset:3px; }
+  .demo-notice { margin:0 0 18px; padding:12px 16px; border:1px solid rgba(245,166,35,.35); border-radius:12px; background:rgba(245,166,35,.09); color:#ffe0a3; font-size:13px; }
+  .skip-link { position:fixed; left:12px; top:-60px; z-index:200; padding:10px 14px; background:#fff; color:#111; border-radius:8px; }
+  .skip-link:focus { top:12px; }
+  @media (prefers-reduced-motion: reduce) { *,*::before,*::after { scroll-behavior:auto !important; animation-duration:.01ms !important; animation-iteration-count:1 !important; transition-duration:.01ms !important; } }
+  @media (max-width:600px) { .toolbar { align-items:stretch; } .toolbar > *, .toolbar .tabs, .toolbar .search-box { width:100%; } .toolbar > div[style*="display:flex"] { flex-wrap:wrap; } .topbar-right { gap:7px; } .demo-notice { font-size:12px; } }
+  /* Dashboard polish */
+  .dashboard-heading { display:flex; align-items:center; justify-content:space-between; gap:18px; padding:24px 26px; margin:0 0 20px; border:1px solid rgba(137,166,255,.2); border-radius:20px; background:radial-gradient(ellipse at 88% 15%,rgba(91,140,255,.2),transparent 43%),linear-gradient(120deg,rgba(30,42,72,.92),rgba(15,21,39,.86)); box-shadow:0 18px 48px rgba(0,0,0,.2),inset 0 1px 0 rgba(255,255,255,.08); }
+  .dashboard-heading .eyebrow { color:#9db7ff; text-transform:uppercase; letter-spacing:1.25px; font-size:10px; font-weight:800; }
+  .dashboard-heading h2 { margin:4px 0 2px; font-size:25px; letter-spacing:-.6px; line-height:1.2; }
+  .dashboard-heading p { margin:6px 0 0; color:#aab5ca; font-size:13px; }
+  .dashboard-grid { display:grid; grid-template-columns:minmax(0,1.65fr) minmax(280px,.85fr); gap:18px; align-items:start; }
+  .dashboard-grid > .card { min-width:0; padding:22px; background:linear-gradient(155deg,rgba(22,30,50,.92),rgba(13,18,32,.9)); border-color:rgba(148,163,184,.14); box-shadow:0 16px 38px rgba(0,0,0,.18),inset 0 1px 0 rgba(255,255,255,.06); }
+  .dashboard-grid > .card + .card { margin-top:0; }
+  #view-dashboard .card h2.card-title { color:#eef2fb; font-size:16px; line-height:1.35; letter-spacing:-.15px; text-transform:none; margin-bottom:16px; }
+  #view-dashboard .grid-stats { grid-template-columns:repeat(4,minmax(0,1fr)); gap:13px; margin-bottom:18px; }
+  #view-dashboard .stat-card { min-height:132px; padding:17px 18px; border-radius:16px; background:linear-gradient(155deg,rgba(24,33,55,.94),rgba(14,20,35,.94)); border-color:rgba(148,163,184,.13); box-shadow:0 12px 28px rgba(0,0,0,.16),inset 0 1px 0 rgba(255,255,255,.06); }
+  #view-dashboard .stat-card::after { content:""; position:absolute; width:90px; height:90px; right:-34px; top:-38px; border-radius:50%; background:var(--stat-glow,rgba(91,140,255,.13)); }
+  #view-dashboard .stat-card:nth-child(1) { --stat-glow:rgba(47,191,113,.18); }
+  #view-dashboard .stat-card:nth-child(2) { --stat-glow:rgba(91,140,255,.2); }
+  #view-dashboard .stat-card:nth-child(3) { --stat-glow:rgba(241,196,15,.17); }
+  #view-dashboard .stat-card:nth-child(4) { --stat-glow:rgba(177,120,255,.18); }
+  #view-dashboard .stat-card .lbl { font-size:11px; letter-spacing:.55px; }
+  #view-dashboard .stat-card .val { font-size:30px; margin-top:9px; line-height:1; }
+  #view-dashboard .stat-card .lbl, #view-dashboard .stat-card .val, #view-dashboard .stat-card .delta { position:relative; z-index:1; }
+  #view-dashboard .stat-card:nth-child(2) .val { color:var(--acc2) !important; }
+  #view-dashboard .stat-card:nth-child(3) .val { color:var(--star) !important; }
+  #view-dashboard .stat-card:nth-child(4) .val { color:#b48bff !important; }
+  #view-dashboard .stat-card .delta.mut:empty { display:none; }
+  #view-dashboard .stat-card .delta { font-size:11px; margin-top:9px; }
+  #view-dashboard .lead { padding:15px 16px; border-radius:13px; gap:12px; background:rgba(255,255,255,.035); }
+  #view-dashboard .lead h3 { font-size:14px; }
+  #view-dashboard .lead .meta { gap:7px; margin-top:7px; }
+  #view-dashboard .dashboard-grid .usage .bar { height:7px; }
+  #view-dashboard .dashboard-grid > .card:last-child { position:sticky; top:18px; }
+  @media (max-width:1050px) { .dashboard-grid { grid-template-columns:1fr; } #view-dashboard .dashboard-grid > .card:last-child { position:static; } }
+  @media (max-width:720px) { #view-dashboard .grid-stats { grid-template-columns:repeat(2,minmax(0,1fr)); } .dashboard-heading { align-items:flex-start; flex-direction:column; padding:20px; } }
+  @media (max-width:420px) { #view-dashboard .grid-stats { gap:9px; } #view-dashboard .stat-card { min-height:120px; padding:14px; } #view-dashboard .stat-card .val { font-size:26px; } #view-dashboard .lead { flex-direction:column; } #view-dashboard .lead-actions { width:100%; justify-content:flex-start; } }
+  .dashboard-shot-upload { display:flex; align-items:center; justify-content:space-between; gap:14px; margin:0 0 18px; padding:14px 18px; border:1px dashed rgba(122,165,255,.48); border-radius:15px; background:linear-gradient(105deg,rgba(91,140,255,.12),rgba(123,77,255,.06)); cursor:pointer; transition:.2s; }
+  .dashboard-shot-upload:hover,.dashboard-shot-upload.over { border-color:var(--acc2); background:rgba(91,140,255,.16); }
+  .dashboard-shot-upload strong { display:block; font-size:13px; }
+  .dashboard-shot-upload small { display:block; margin-top:2px; color:var(--muted); font-size:11px; }
+  .dashboard-shot-upload input { position:absolute; width:1px; height:1px; opacity:0; overflow:hidden; }
+
+  /* Simplified dashboard overrides */
+  .dashboard-heading { padding:15px 18px; margin-bottom:13px; border-radius:14px; border-color:rgba(148,163,184,.14); background:rgba(20,28,46,.72); box-shadow:inset 0 1px 0 rgba(255,255,255,.04); }
+  .dashboard-heading .eyebrow { font-size:9px; letter-spacing:1px; color:var(--muted); }
+  .dashboard-heading h2 { margin:3px 0; font-size:19px; font-weight:700; letter-spacing:-.2px; }
+  .dashboard-heading p { margin:2px 0 0; font-size:12px; }
+  .dashboard-shot-upload { min-height:58px; margin-bottom:12px; padding:8px 12px; border-radius:12px; background:rgba(255,255,255,.025); }
+  .dashboard-shot-upload strong { font-size:12px; }
+  .dashboard-shot-upload small { font-size:10px; }
+  #view-dashboard .grid-stats { gap:10px; margin-bottom:14px; }
+  #view-dashboard .stat-card { min-height:96px; padding:13px 15px; border-radius:12px; background:rgba(20,28,46,.76); box-shadow:none; }
+  #view-dashboard .stat-card::after { width:60px; height:60px; right:-28px; top:-26px; opacity:.65; }
+  #view-dashboard .stat-card .lbl { font-size:10px; text-transform:none; letter-spacing:0; }
+  #view-dashboard .stat-card .val { margin-top:8px; font-size:25px; }
+  #view-dashboard .stat-card .delta { margin-top:5px; font-size:10px; }
+  .dashboard-grid { gap:12px; }
+  .dashboard-grid > .card { padding:17px; border-radius:13px; background:rgba(20,28,46,.72); box-shadow:none; }
+  #view-dashboard .card h2.card-title { margin-bottom:12px; font-size:14px; }
+  #view-dashboard .lead { padding:12px; background:rgba(255,255,255,.025); box-shadow:none; }
+  #view-dashboard .lead:hover { box-shadow:none; }
+  #view-dashboard .dashboard-grid > .card:last-child { top:12px; }
+  @media (max-width:600px) { .dashboard-shot-upload { align-items:flex-start; } .dashboard-shot-upload > .btn { white-space:nowrap; } }
+  /* Image library */
+  .image-library { margin:0 0 16px; padding:16px; border:1px solid rgba(148,163,184,.16); border-radius:15px; background:rgba(20,28,46,.72); }
+  .image-library-head { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:12px; }
+  .image-library-head h3 { margin:0; font-size:14px; }
+  .image-library-head p { margin:3px 0 0; color:var(--muted); font-size:11px; }
+  .image-add { display:inline-flex; align-items:center; gap:7px; padding:8px 12px; border:1px dashed rgba(122,165,255,.45); border-radius:10px; color:var(--txt); background:rgba(91,140,255,.08); cursor:pointer; font-size:12px; white-space:nowrap; }
+  .image-add:hover,.image-add.over { border-color:var(--acc2); background:rgba(91,140,255,.17); }
+  .image-add input { display:none; }
+  .image-grid { display:grid; grid-template-columns:repeat(10,minmax(0,1fr)); gap:9px; }
+  .image-card { position:relative; min-width:0; display:flex; flex-direction:column; border:1px solid rgba(148,163,184,.17); border-radius:10px; overflow:visible; background:rgba(0,0,0,.18); }
+  .image-card > img { display:block; width:100%; aspect-ratio:1.45; border-radius:9px 9px 0 0; object-fit:cover; cursor:zoom-in; }
+  .image-remove { display:block; width:100%; min-height:34px; border:0; border-top:1px solid rgba(148,163,184,.14); border-radius:0 0 9px 9px; color:#ffb4b4; background:rgba(190,45,65,.10); cursor:pointer; font-size:11px; font-weight:700; }
+   .image-remove:hover,.image-remove:focus-visible { color:#fff; background:rgba(190,45,65,.32); }
+  .image-zoom { display:none; position:fixed; inset:0; z-index:180; align-items:center; justify-content:center; padding:5vh 5vw; background:rgba(5,8,15,.88); pointer-events:none; }
+  .image-card:has(> img:hover) .image-zoom { display:flex; }
+  .image-zoom img { max-width:90vw; max-height:90vh; width:auto; height:auto; object-fit:contain; border:1px solid rgba(255,255,255,.18); border-radius:12px; box-shadow:0 24px 100px rgba(0,0,0,.65); background:#0b1020; }
+  .image-empty { grid-column:1/-1; padding:16px; border:1px dashed rgba(148,163,184,.2); border-radius:10px; color:var(--muted); text-align:center; font-size:12px; }
+  @media(max-width:1100px){.image-grid{grid-template-columns:repeat(5,minmax(0,1fr));}}
+  @media(max-width:600px){.image-library-head{align-items:flex-start; flex-direction:column}.image-grid{grid-template-columns:repeat(2,minmax(0,1fr));}.image-remove{opacity:1}}
+  .hidden { display:none !important; }
+  /* ---------- světlý, čistý vzhled ---------- */
+  :root {
+    --bg:#f5f7fb; --bg2:#ffffff; --panel:#ffffff; --panel2:#f1f4f9;
+    --border:#e2e7f0; --border2:#cfd7e5; --glass-hi:inset 0 1px 0 rgba(255,255,255,.9);
+    --glass-blur:none; --txt:#172033; --muted:#667085; --muted2:#8993a5;
+    --acc:#2563eb; --acc2:#1d4ed8; --acc-soft:#eff6ff; --acc-glow:rgba(37,99,235,.16);
+    --green:#15945c; --green-soft:#eaf8f0; --amber:#a85d00; --red:#c93345;
+    --star:#b7791f; --shadow:0 18px 50px rgba(24,39,75,.10);
+  }
+  body { background:#f5f7fb; color:#172033; }
+  .bg-orbs { background:#f5f7fb; }
+  .orb { display:none; }
+  .landing::before { background:linear-gradient(180deg,rgba(255,255,255,.82),rgba(245,247,251,0) 34%,rgba(245,247,251,.2)); }
+  .nav { background:rgba(255,255,255,.94); border-bottom-color:#e5e9f1; box-shadow:0 3px 14px rgba(16,24,40,.04); }
+  .nav-links a:hover { color:#172033; }
+  .hero-shot,.feature,.step,.plan,.testimonial,.faq-item,.modal,.card,.stat-card,.dashboard-grid > .card,.image-card,.notif-panel,.toast,.plan-mini {
+    background:#fff; border-color:#e2e7f0; box-shadow:0 8px 24px rgba(24,39,75,.055);
+    backdrop-filter:none; -webkit-backdrop-filter:none;
+  }
+  .hero-shot { border-radius:20px; }
+  .mock-row,.tabs,.chip,.field input,.field select,.field textarea,.search-box input,.status-select,.icon-btn,.dashboard-shot-upload {
+    background:#fff; color:#172033; border-color:#dce3ee; box-shadow:none; backdrop-filter:none; -webkit-backdrop-filter:none;
+  }
+  .mock-row { box-shadow:0 2px 8px rgba(24,39,75,.04); }
+  .btn.ghost { color:#344054; background:#fff; border-color:#d5dce8; box-shadow:0 1px 2px rgba(16,24,40,.05); backdrop-filter:none; -webkit-backdrop-filter:none; }
+  .btn.ghost:hover,.nav-item:hover,.icon-btn:hover { color:#172033; background:#f3f6fb; }
+  .badge.gold { color:#8a5b00; background:#fff7df; border-color:#f1dfa4; }
+  .sidebar { background:#fff; border-right-color:#e5e9f1; backdrop-filter:none; -webkit-backdrop-filter:none; box-shadow:3px 0 14px rgba(16,24,40,.025); }
+  .nav-item { color:#596579; }
+  .nav-item.active { color:#1d4ed8; background:#eff6ff; border-color:#dbeafe; box-shadow:none; }
+  .nav-item .cnt { color:#fff; }
+  .main { background:transparent; }
+  .dashboard-heading { background:#fff; border-color:#e2e7f0; box-shadow:0 8px 24px rgba(24,39,75,.055); }
+  .dashboard-heading .eyebrow { color:#2563eb; }
+  .dashboard-heading h2,.dashboard-heading p { color:#172033; }
+  .dashboard-heading p { color:#667085; }
+  .dashboard-grid > .card { background:#fff; border-color:#e2e7f0; box-shadow:0 8px 24px rgba(24,39,75,.055); }
+  #view-dashboard .card h2.card-title { color:#344054; }
+  #view-dashboard .stat-card { background:#fff; border-color:#e2e7f0; box-shadow:0 4px 14px rgba(24,39,75,.045); }
+  #view-dashboard .stat-card:nth-child(n) .lbl { color:#667085; }
+  #view-dashboard .stat-card .val,#view-dashboard .stat-card:nth-child(2) .val,
+  #view-dashboard .stat-card:nth-child(3) .val,#view-dashboard .stat-card:nth-child(4) .val { color:#172033 !important; }
+  #view-dashboard .stat-card:nth-child(1) .val { color:#15945c !important; }
+  #view-dashboard .lead,.lead { background:#fff; border-color:#e2e7f0; box-shadow:0 2px 8px rgba(24,39,75,.035); }
+  #view-dashboard .lead:hover,.lead:hover { background:#fbfcfe; border-color:#cfd7e5; box-shadow:0 8px 20px rgba(24,39,75,.075); }
+  .lead.is-new { background:#f3fbf6; border-color:#b9e7cc; box-shadow:inset 4px 0 0 #15945c; }
+  .lead h3 a { color:#172033; }
+  .lead h3 a:hover { color:#1d4ed8; }
+  .lead .src { color:#1d4ed8; background:#eff6ff; }
+  .lead-description { color:#667085; }
+  .portal-grid { border-top-color:#e2e7f0; }
+  .chk { color:#475467; }
+  .chk:hover { color:#172033; }
+  .chk .tag { color:#1d4ed8; background:#eff6ff; }
+  .log { color:#475467; background:#f8fafc; border-color:#e2e7f0; backdrop-filter:none; -webkit-backdrop-filter:none; }
+  .table th { color:#667085; }
+  .table td { color:#344054; }
+  .usage .bar { background:#e9edf4; }
+  .switch i { background:#d6dce6; }
+  .switch input:checked + i { background:#2563eb; }
+  .status-select option { background:#fff; color:#172033; }
+  .st-contacted { color:#1d4ed8; }
+  .st-offer { color:#a85d00; }
+  .st-won { color:#12804f; }
+  .st-lost { color:#c93345; }
+  .demo-notice { color:#7a4b00; background:#fff8e8; border-color:#f0d99c; }
+  .image-card { background:#f8fafc; border-color:#e2e7f0; }
+  .image-remove { color:#b42332; background:#fff1f2; border-top-color:#f3c8cd; }
+  .image-remove:hover,.image-remove:focus-visible { color:#fff; background:#c93345; }
+  .plan.featured { background:#f4f8ff; border-color:#a8c5ff; box-shadow:0 12px 32px rgba(37,99,235,.10); }
+  .plan .desc,.feature p,.step p,.testimonial .who span,.plan-mini span { color:#667085; }
+  .hero h1 .grad,.stat b { background-image:linear-gradient(90deg,#2563eb,#6842c2); }
+  .faq-item .a { color:#667085; }
+  .toast { color:#172033; }
+  input::placeholder,textarea::placeholder { color:#8993a5; }
+  @media(max-width:900px){ .sidebar { background:#fff; box-shadow:8px 0 30px rgba(16,24,40,.12); } }
+
+  /* Oprava karet poptávek a citlivého zalamování výsledků */
+  .leads.jobs-grid { grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr)); }
+  .lead .badge.plan { display:inline-flex; width:auto; min-width:0; min-height:0; height:auto; flex:0 0 auto; padding:3px 9px; font-size:11px; line-height:1.4; white-space:nowrap; }
+
+  /* Režim se přepíná tlačítkem v horní liště */
+  body.theme-dark { --bg:#0b1020; --bg2:#111827; --panel:#111827; --panel2:#1f2937; --border:#293548; --border2:#3b4a61; --glass-hi:inset 0 1px 0 rgba(255,255,255,.05); --glass-blur:none; --txt:#e6eaf2; --muted:#a6b0c2; --muted2:#8491a5; --acc:#4f83f1; --acc2:#8ab4ff; --acc-soft:rgba(79,131,241,.16); --acc-glow:rgba(79,131,241,.25); --green:#31bb79; --green-soft:rgba(49,187,121,.12); --amber:#f5bd54; --red:#ff7181; --star:#f4cf5e; --shadow:0 18px 50px rgba(0,0,0,.32); background:#0b1020; color:#e6eaf2; }
+  body.theme-dark .bg-orbs { background:#0b1020; }
+  body.theme-dark .nav, body.theme-dark .sidebar { background:#111827; border-color:#293548; box-shadow:0 6px 20px rgba(0,0,0,.16); }
+  body.theme-dark .nav-links a:hover, body.theme-dark .icon-btn:hover { color:#fff; }
+  body.theme-dark .hero-shot, body.theme-dark .feature, body.theme-dark .step, body.theme-dark .plan, body.theme-dark .testimonial, body.theme-dark .faq-item, body.theme-dark .modal, body.theme-dark .card, body.theme-dark .stat-card, body.theme-dark .dashboard-grid > .card, body.theme-dark .image-card, body.theme-dark .notif-panel, body.theme-dark .toast, body.theme-dark .plan-mini { background:#111827; border-color:#293548; color:#e6eaf2; box-shadow:0 10px 28px rgba(0,0,0,.2); }
+  body.theme-dark .mock-row, body.theme-dark .tabs, body.theme-dark .chip, body.theme-dark .field input, body.theme-dark .field select, body.theme-dark .field textarea, body.theme-dark .search-box input, body.theme-dark .status-select, body.theme-dark .icon-btn, body.theme-dark .dashboard-shot-upload { background:#172033; color:#e6eaf2; border-color:#344158; }
+  body.theme-dark .btn.ghost { color:#e6eaf2; background:#172033; border-color:#3b4a61; }
+  body.theme-dark .btn.ghost:hover, body.theme-dark .nav-item:hover { background:#1c2940; color:#fff; }
+  body.theme-dark .nav-item { color:#a6b0c2; }
+  body.theme-dark .nav-item.active { color:#a9c6ff; background:rgba(79,131,241,.16); border-color:rgba(138,180,255,.28); }
+  body.theme-dark .dashboard-heading { background:linear-gradient(120deg,#17233a,#111827); border-color:#293548; box-shadow:0 12px 32px rgba(0,0,0,.25); }
+  body.theme-dark .dashboard-heading .eyebrow { color:#9dbaff; }
+  body.theme-dark .dashboard-heading h2 { color:#f2f5fa; }
+  body.theme-dark .dashboard-heading p { color:#a6b0c2; }
+  body.theme-dark .dashboard-grid > .card { background:#111827; border-color:#293548; }
+  body.theme-dark #view-dashboard .card h2.card-title { color:#e6eaf2; }
+  body.theme-dark #view-dashboard .stat-card { background:#172033; border-color:#293548; }
+  body.theme-dark #view-dashboard .stat-card:nth-child(n) .lbl { color:#a6b0c2; }
+  body.theme-dark #view-dashboard .stat-card .val, body.theme-dark #view-dashboard .stat-card:nth-child(2) .val, body.theme-dark #view-dashboard .stat-card:nth-child(3) .val, body.theme-dark #view-dashboard .stat-card:nth-child(4) .val { color:#e6eaf2 !important; }
+  body.theme-dark #view-dashboard .stat-card:nth-child(1) .val { color:#31bb79 !important; }
+  body.theme-dark #view-dashboard .lead, body.theme-dark .lead { background:#151e2d; border-color:#2a374b; }
+  body.theme-dark #view-dashboard .lead:hover, body.theme-dark .lead:hover { background:#1a2638; border-color:#42516a; }
+  body.theme-dark .lead.is-new { background:#10281e; border-color:#1b6743; box-shadow:inset 4px 0 0 #31bb79; }
+  body.theme-dark .lead h3 a { color:#e6eaf2; }
+  body.theme-dark .lead h3 a:hover { color:#a9c6ff; }
+  body.theme-dark .lead .src { color:#a9c6ff; background:rgba(79,131,241,.16); }
+  body.theme-dark .log { color:#c0cad9; background:#0f1724; border-color:#293548; }
+  body.theme-dark .table th, body.theme-dark .table td { color:#b8c2d3; border-color:#293548; }
+  body.theme-dark .usage .bar { background:#283448; }
+  body.theme-dark .status-select option { background:#172033; color:#e6eaf2; }
+  body.theme-dark .demo-notice { color:#ffdf9c; background:rgba(168,93,0,.14); border-color:rgba(245,189,84,.3); }
+  body.theme-dark .image-remove { color:#ffb4bc; background:rgba(201,51,69,.16); border-top-color:#3c2d3a; }
+  body.theme-dark .image-remove:hover, body.theme-dark .image-remove:focus-visible { color:#fff; background:#c93345; }
+  body.theme-dark .plan.featured { background:linear-gradient(160deg,#172746,#111827); border-color:#365b9b; }
+  body.theme-dark .faq-item .a, body.theme-dark .plan .desc, body.theme-dark .feature p, body.theme-dark .step p, body.theme-dark .testimonial .who span { color:#a6b0c2; }
+  body.theme-dark .toast { color:#e6eaf2; }
+  body.theme-dark input::placeholder, body.theme-dark textarea::placeholder { color:#8491a5; }
+  body.theme-dark .lead .badge.plan { color:#a9c6ff; border-color:#3b5680; background:rgba(79,131,241,.14); }
+  body.theme-dark .facebook-share { color:#8ab4ff; background:#172033; border-color:#344158; }
+  body.theme-dark .facebook-share:hover { color:#fff; background:#1e3a66; }
+  @media(max-width:900px){ body.theme-dark .sidebar { background:#111827; box-shadow:8px 0 30px rgba(0,0,0,.4); } }
+
+  /* Chat */
+  .chat-shell { display:grid; grid-template-columns:minmax(240px,310px) minmax(0,1fr); min-height:560px; overflow:hidden; }
+  .chat-list { border-right:1px solid var(--border); padding:18px; min-width:0; }
+  .chat-list-head { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:14px; }
+  .chat-list-head h2 { margin:0; font-size:16px; }
+  .chat-search { width:100%; margin-bottom:12px; }
+  .chat-thread-list { display:flex; flex-direction:column; gap:6px; max-height:430px; overflow:auto; }
+  .chat-thread { display:block; width:100%; text-align:left; color:var(--txt); background:transparent; border:1px solid transparent; border-radius:12px; padding:12px; cursor:pointer; }
+  .chat-thread:hover { background:var(--acc-soft); }
+  .chat-thread.active { background:var(--acc-soft); border-color:var(--border2); }
+  .chat-thread strong,.chat-thread small,.chat-thread span { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .chat-thread small { color:var(--muted); margin-top:4px; }
+  .chat-thread span { color:var(--muted2); font-size:11px; margin-top:5px; }
+  .chat-room { min-width:0; display:flex; flex-direction:column; min-height:560px; }
+  .chat-room-head { padding:18px 20px; border-bottom:1px solid var(--border); }
+  .chat-room-head h2 { margin:0 0 4px; font-size:17px; }
+  .chat-room-head p { margin:0; color:var(--muted); font-size:12px; }
+  .chat-messages { padding:20px; flex:1; min-height:280px; max-height:450px; overflow:auto; display:flex; flex-direction:column; gap:12px; }
+  .chat-empty { margin:auto; max-width:360px; color:var(--muted); text-align:center; line-height:1.6; }
+  .chat-bubble { max-width:min(78%,560px); align-self:flex-end; background:var(--acc-soft); border:1px solid var(--border2); border-radius:14px 14px 4px 14px; padding:11px 14px; overflow-wrap:anywhere; }
+  .chat-bubble p { margin:0; white-space:pre-wrap; }
+  .chat-bubble time { display:block; color:var(--muted); font-size:10px; margin-top:6px; text-align:right; }
+  .chat-bubble.received { align-self:flex-start; background:var(--panel); border-color:var(--border); border-radius:14px 14px 14px 4px; }
+  .chat-compose { display:flex; align-items:flex-end; gap:10px; padding:14px 18px; border-top:1px solid var(--border); }
+  .chat-compose textarea { flex:1; min-width:0; resize:vertical; min-height:44px; max-height:130px; }
+  .chat-notice { margin:14px 18px 0; padding:10px 12px; border-radius:10px; color:var(--muted); background:var(--acc-soft); font-size:12px; line-height:1.5; }
+  body.theme-dark .chat-thread.active, body.theme-dark .chat-thread:hover { background:#1e2b42; border-color:#344158; }
+  @media(max-width:720px) { .chat-shell { grid-template-columns:1fr; } .chat-list { border-right:0; border-bottom:1px solid var(--border); } .chat-thread-list { max-height:180px; } .chat-room,.chat-shell { min-height:0; } .chat-messages { min-height:240px; } }
+
+</style>
+</head>
+<body>
+  <a class="skip-link" href="#main-content">Přeskočit na obsah</a>
+
+<div class="bg-orbs"><div class="orb o1"></div><div class="orb o2"></div><div class="orb o3"></div><div class="orb o4"></div></div>
+
+<!-- ================= LANDING ================= -->
+<div class="landing" id="landing">
+  <div class="demo-notice" role="status" style="max-width:1120px;margin:12px auto 0;">Interaktivní prototyp · Ukázkové údaje · Bez skutečného účtu, plateb a garantovaného sběru zakázek</div>
+
+  <nav class="nav">
+    <a class="logo" href="#" onclick="return false"><span class="mark">Z</span>Zakázkář</a>
+    <div class="nav-links">
+      <a href="#funkce" class="hide-m">Funkce</a>
+      <a href="#cenik" class="hide-m">Ceník</a>
+      <a href="#faq" class="hide-m">FAQ</a>
+      <a href="#" class="btn ghost small" onclick="showAuth('login');return false;">Vstoupit do ukázky</a>
+      <a href="#" class="btn small" onclick="showAuth('signup');return false;">Spustit ukázku</a>
+    </div>
+  </nav>
+
+  <div class="hero">
+    <div>
+      <span class="chip">Ukázka rozhraní pro práci s poptávkami</span>
+      <h1>Poptávky a obchodní příležitosti <span class="grad">přehledně na jednom místě.</span></h1>
+      <p class="lead">Tato interaktivní ukázka předvádí správu poptávek, klíčových slov a obchodní pipeline. Napojení na zdroje, účty a platby zatím není součástí prototypu.</p>
+      <div class="hero-cta">
+        <a href="#" class="btn" onclick="showAuth('signup');return false;">Otevřít ukázku →</a>
+        <a href="#cenik" class="btn ghost">Zobrazit ceník</a>
+      </div>
+      <div class="trust">
+        <div>✓ Ukázkové údaje</div>
+        <div>✓ Ukládání v prohlížeči</div>
+        <div>✓ Rozhraní v češtině</div>
+      </div>
+    </div>
+    <div class="hero-shot">
+      <div class="browser-dot"><span></span><span></span><span></span></div>
+      <div class="mock-row"><div class="dot" style="background:var(--acc-soft)"></div><div><b>Omítky 120 m² — Ostrava-Vítkovice</b><small>poptavky.cz · před 12 minutami</small></div><span class="badge new">NOVÉ</span></div>
+      <div class="mock-row"><div class="dot" style="background:rgba(123,77,255,.2)"></div><div><b>Klimatizace do rodinného domu, Opava</b><small>poptavka-eu.cz · před 34 minutami</small></div><span class="badge new">NOVÉ</span></div>
+      <div class="mock-row"><div class="dot" style="background:var(--green-soft)"></div><div><b>Bourání komína a odvoz sutě</b><small>trhpoptavek.cz · před 1 hodinou</small></div><span class="price">⭐</span></div>
+      <div class="mock-row"><div class="dot" style="background:var(--acc-soft)"></div><div><b>Rekonstrukce koupelny 4+1, Havířov</b><small>zakazky.sluzby.cz · před 2 hodinami</small></div><span class="price">⭐</span></div>
+    </div>
+  </div>
+
+  <section class="block">
+    <div class="stats-band">
+      <div class="stat"><b>33</b><span>zdrojů v katalogu, včetně nových poptávkových portálů</span></div>
+      <div class="stat"><b>Ukázka</b><span>data jsou demonstrační</span></div>
+      <div class="stat"><b>Lokálně</b><span>změny se ukládají v tomto prohlížeči</span></div>
+      <div class="stat"><b>Prototyp</b><span>bez napojení na platební bránu</span></div>
+    </div>
+  </section>
+
+  <section class="block" id="funkce">
+    <h2 class="title">Co aplikace umí v ukázce</h2>
+    <p class="sub">Ukázkové rozhraní pro zkoumání práce se zakázkami.</p>
+    <div class="features">
+      <div class="feature"><div class="ico">📡</div><h3>Automatický sběr poptávek</h3><p>Ukázkové zakázky si můžete prohlížet a filtrovat. Živý sběr dat vyžaduje serverové napojení.</p></div>
+      <div class="feature"><div class="ico">🔔</div><h3>Nové zakázky na první pohled</h3><p>Ukázkové záznamy zvýrazňují novinky. Pro skutečné upozornění je třeba připojit zdroje a službu.</p></div>
+      <div class="feature"><div class="ico">🎯</div><h3>Filtr podle vašeho řemesla</h3><p>Zedník, elektrikář, instalatér, klimatizace… Nastavte si vlastní klíčová slova a uvidíte jen zakázky, které umíte odvést.</p></div>
+      <div class="feature"><div class="ico">⭐</div><h3>Oblíbené a sledování</h3><p>Zakázky, které vás zajímají, si uložte do oblíbených a mějte je vždy po ruce pro kontaktování zákazníka.</p></div>
+      <div class="feature"><div class="ico">📤</div><h3>Export do CSV</h3><p>Vyexportujte zakázky do Excelu a předejte je obchodníkům, nebo si vytvořte vlastní pipeline pro oslovení.</p></div>
+      <div class="feature"><div class="ico">🤝</div><h3>Založeno pro tým</h3><p>Firemní tarif umožňuje přidat kolegy, sdílet oblíbené a rozdělit si zakázky mezi obchodníky.</p></div>
+    </div>
+  </section>
+
+  <section class="block">
+    <h2 class="title">Jak to funguje</h2>
+    <p class="sub">Tři kroky v ukázce.</p>
+    <div class="steps">
+      <div class="step"><div class="num">1</div><h3>Zvolte své řemeslo</h3><p>Nastavte si klíčová slova. Změny se uloží lokálně ve vašem prohlížeči.</p></div>
+      <div class="step"><div class="num">2</div><h3>Zvolte portály a kraj</h3><p>Vyberte zdroje a podívejte se, jak by mohlo vypadat jejich nastavení.</p></div>
+      <div class="step"><div class="num">3</div><h3>Přijímejte zakázky</h3><p>V přehledu můžete měnit stav, ukládat poznámky a oblíbené.</p></div>
+    </div>
+  </section>
+
+  <section class="block" id="cenik">
+    <h2 class="title">Ceník</h2>
+    <p class="sub">Ceník níže je orientační návrh pro budoucí službu. V tomto prototypu neprobíhá objednávka ani platba.</p>
+    <div class="plans">
+      <div class="plan">
+        <h3>Start</h3>
+        <div class="desc">Pro jednotlivce, kteří teď s poptávkami začínají.</div>
+        <div class="amount">299 Kč<small> /měsíc</small></div>
+        <ul>
+          <li class="ok"><span class="tick">✓</span>4 regionální portály</li>
+          <li class="ok"><span class="tick">✓</span>10 klíčových slov</li>
+          <li class="ok"><span class="tick">✓</span>1 uživatel</li>
+          <li class="ok"><span class="tick">✓</span>Denní přehled nových zakázek</li>
+          <li><span class="cross">✕</span>Export do CSV</li>
+          <li><span class="cross">✕</span>E-mailové notifikace</li>
+        </ul>
+        <button class="btn ghost" onclick="startTrial('start')">Otevřít ukázku tarifu Start</button>
+      </div>
+      <div class="plan featured">
+        <span class="pop badge gold">Nejoblíbenější</span>
+        <h3>Profi</h3>
+        <div class="desc">Pro řemeslníky, kteří chtějí zakázky rychle a všude.</div>
+        <div class="amount">699 Kč<small> /měsíc</small></div>
+        <ul>
+          <li class="ok"><span class="tick">✓</span>Všech 22 zdrojů v katalogu</li>
+          <li class="ok"><span class="tick">✓</span>Neomezená klíčová slova</li>
+          <li class="ok"><span class="tick">✓</span>1 uživatel</li>
+          <li class="ok"><span class="tick">✓</span>Denní přehled + e-mail notifikace</li>
+          <li class="ok"><span class="tick">✓</span>Export do CSV</li>
+          <li><span class="cross">✕</span>Více uživatelů</li>
+        </ul>
+        <button class="btn" onclick="startTrial('profi')">Otevřít ukázku tarifu Profi</button>
+      </div>
+      <div class="plan">
+        <h3>Firemní</h3>
+        <div class="desc">Pro firmy s více obchodníky a vyšším objemem.</div>
+        <div class="amount">1 490 Kč<small> /měsíc</small></div>
+        <ul>
+          <li class="ok"><span class="tick">✓</span>Vše z tarifu Profi</li>
+          <li class="ok"><span class="tick">✓</span>3 uživatelé (další +190 Kč)</li>
+          <li class="ok"><span class="tick">✓</span>Sdílené oblíbené a přiřazování</li>
+          <li class="ok"><span class="tick">✓</span>Export do CSV i pro tým</li>
+          <li class="ok"><span class="tick">✓</span>Priority podpora do 24 h</li>
+          <li class="ok"><span class="tick">✓</span>Rozšíření o další kraje na vyžádání</li>
+        </ul>
+        <button class="btn ghost" onclick="startTrial('firma')">Otevřít ukázku tarifu Firemní</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="block">
+    <h2 class="title">Ukázkové příběhy</h2>
+    <p class="sub">Níže uvedené citace jsou ilustrační ukázky a nejsou ověřenými referencemi.</p>
+    <div class="testimonials">
+      <div class="testimonial"><div class="stars">★★★★★</div><p>„Dřív jsem každou ráno hodinu procházel portály. Teď si otevřu Zakázkář a mám nové poptávky za 30 sekund. Za 699 korun to je nejlevnější obchodní, co mám."</p><div class="who"><div class="avatar">PN</div><div><b>Petr Novák</b><span>Novák s.r.o. — omítky a sádrokarton, Ostrava</span></div></div></div>
+      <div class="testimonial"><div class="stars">★★★★★</div><p>„V první měsíc jsem z poptávek z Zakázkáře získal tři zakázky na klimatizace. Investice se mi vrátila asi dvacetkrát."</p><div class="who"><div class="avatar">MH</div><div><b>Martin Hrbáč</b><span>HRBÁČ Klima — instalace klimatizací, Opava</span></div></div></div>
+      <div class="testimonial"><div class="stars">★★★★★</div><p>„Firemní tarif nám umožnil rozdělit zakázky mezi dva obchodníky. Už nikdo nezmešká poptávku jen proto, že ji někdo přehlédl."</p><div class="who"><div class="avatar">JV</div><div><b>Jana Veverková</b><span>VEVERKA Stavby s.r.o., Havířov</span></div></div></div>
+    </div>
+  </section>
+
+  <section class="block" id="faq">
+    <h2 class="title">Časté dotazy</h2>
+    <p class="sub">Co tato ukázka dělá a co zatím vyžaduje další napojení.</p>
+    <div style="max-width:760px;margin:0 auto;">
+      <div class="faq-item"><button class="q" onclick="toggleFaq(this)">Kde se zakázky berou? <span>＋</span></button><div class="a"><div>V této ukázce jsou předpřipravené demonstrační záznamy. Živý sběr vyžaduje serverové napojení na jednotlivé zdroje.</div></div></div>
+      <div class="faq-item"><button class="q" onclick="toggleFaq(this)">Proč ukázka cílí na Moravskoslezský kraj? <span>＋</span></button><div class="a"><div>Ukázková data a filtry jsou připravené pro města v Moravskoslezském kraji. Rozšíření na další kraje by vyžadovalo doplnit zdroje a jejich filtrování.</div></div></div>
+      <div class="faq-item"><button class="q" onclick="toggleFaq(this)">Co když se žádná zakázka neukáže? <span>＋</span></button><div class="a"><div>Ukázková data jsou předvyplněná. Živé výsledky ani jejich četnost tato verze nezaručuje.</div></div></div>
+      <div class="faq-item"><button class="q" onclick="toggleFaq(this)">Potřebuji instalovat něco do počítače? <span>＋</span></button><div class="a"><div>Ne. Zakázkář běží v prohlížeči, funguje na počítači, tabletu i mobilu. Stačí se přihlásit.</div></div></div>
+      <div class="faq-item"><button class="q" onclick="toggleFaq(this)">Jsou platby aktivní? <span>＋</span></button><div class="a"><div>Ne. Ceník i fakturační obrazovka jsou pouze návrh budoucí funkce; žádná objednávka ani platba se neprovádí.</div></div></div>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="cta-band">
+      <h2>Prohlédněte si ukázku</h2>
+      <p>Bez objednávky · bez plateb · ukázkový režim</p>
+      <button class="btn" onclick="showAuth('signup')">Otevřít ukázkový účet zdarma →</button>
+    </div>
+  </section>
+
+  <footer class="site">
+    <div class="inner">
+      <div>
+        <a class="logo" style="font-size:15px;" href="#" onclick="return false"><span class="mark" style="width:26px;height:26px;font-size:13px;border-radius:8px;">Z</span>Zakázkář</a>
+        <p style="margin:10px 0 0;">Interaktivní prototyp pro správu poptávek a obchodní pipeline.</p>
+      </div>
+      <div>© 2026 Zakázkář · Interaktivní prototyp</div>
+    </div>
+  </footer>
+</div>
+
+<!-- ================= AUTH MODAL ================= -->
+<div class="overlay" id="auth-overlay">
+  <div class="modal">
+    <h3 id="auth-title">Přihlášení</h3>
+    <p class="hint" id="auth-hint">Přihlaste se ke svému účtu Zakázkáře.</p>
+    <p class="err" id="auth-err"></p>
+    <div class="field"><label for="auth-email">E-mail</label><input type="email" id="auth-email" autocomplete="email" placeholder="jan@firma.cz"></div>
+    <div class="field" id="auth-pass-wrap"><label for="auth-pass">Heslo</label><input type="password" id="auth-pass" autocomplete="current-password" minlength="10" placeholder="Alespoň 10 znaků"></div>
+    <button class="btn" style="width:100%" id="auth-submit" onclick="submitAuth()">Přihlásit se</button>
+    <div class="switch-link" id="auth-switch">Nemáte účet? <a href="#" onclick="showAuth('signup');return false;">Zaregistrujte se</a></div>
+    <div class="switch-link" style="margin-top:8px;color:var(--muted);"><a href="#" style="font-size:12px;" onclick="demoLogin();return false;">→ Vstoupit do ukázkového účtu (demo)</a></div>
+  </div>
+</div>
+
+<!-- ================= NOTE + DIGEST MODALS ================= -->
+<div class="overlay" id="note-overlay">
+  <div class="modal">
+    <h3>📝 Poznámka k zakázce</h3>
+    <p class="hint" id="note-title"></p>
+    <div class="field"><label>Poznámka (kontakt, cena, dohody…)</label><textarea id="note-text" rows="5" placeholder="Zavolat paní Novákové do pátku, nabídka ~45 000 Kč…"></textarea></div>
+    <button class="btn" style="width:100%" onclick="saveNote()">Uložit poznámku</button>
+    <button class="btn ghost small" style="width:100%;margin-top:8px;" onclick="document.getElementById('note-overlay').classList.remove('show')">Zavřít</button>
+  </div>
+</div>
+
+<div class="overlay" id="digest-overlay">
+  <div class="modal" style="max-width:520px;">
+    <h3>📩 Denní souhrn</h3>
+    <p class="hint">Přehled poptávek za posledních 24 hodin.</p>
+    <div id="digest-body"></div>
+    <a class="btn" style="width:100%;margin-top:18px;" id="digest-mailto" href="#">Odeslat e-mailem (souhrn v textu zprávy)</a>
+    <button class="btn ghost small" style="width:100%;margin-top:8px;" onclick="document.getElementById('digest-overlay').classList.remove('show')">Zavřít</button>
+  </div>
+</div>
+
+<!-- ================= APP ================= -->
+<div class="app hidden" id="app">
+  <aside class="sidebar" id="sidebar">
+    <div class="side-brand"><span class="logo" style="margin:0;"><span class="mark">Z</span></span> Zakázkář</div>
+    <div class="nav-item active" role="button" tabindex="0" data-view="dashboard" onclick="setView('dashboard')"><span>📊</span> Přehled</div>
+    <div class="nav-item" role="button" tabindex="0" data-view="jobs" onclick="setView('jobs')"><span>📋</span> Zakázky <span class="n" id="nav-newcount"></span></div>
+    <div class="nav-item" role="button" tabindex="0" data-view="chat" onclick="setView('chat')"><span>💬</span> Chat <span class="n" id="nav-chatcount"></span></div>
+    <div class="nav-item" role="button" tabindex="0" data-view="favorites" onclick="setView('favorites')"><span>⭐</span> Oblíbené</div>
+    <div class="nav-item" role="button" tabindex="0" data-view="keywords" onclick="setView('keywords')"><span>🎯</span> Klíčová slova</div>
+    <div class="nav-item" role="button" tabindex="0" data-view="sources" onclick="setView('sources')"><span>📡</span> Portály</div>
+    <div class="nav-item" role="button" tabindex="0" data-view="billing" onclick="setView('billing')"><span>💳</span> Fakturace</div>
+    <div class="nav-item" role="button" tabindex="0" data-view="settings" onclick="setView('settings')"><span>⚙️</span> Nastavení</div>
+    <div class="side-foot">
+      <div class="plan-mini">
+        <b id="side-plan">Profi</b>
+        <span id="side-plan-note">699 Kč/měs · další faktura 1. 11. 2026</span>
+        <button class="btn small ghost" style="width:100%;margin-top:10px;" onclick="setView('billing')">Spravovat předplatné</button>
+      </div>
+    </div>
+  </aside>
+
+  <div class="main-wrap" style="min-width:0;">
+    <div class="main">
+      <div class="demo-notice" role="status">Ukázkový účet · Scanner cílí na poptávky zákazníků z poptávkových portálů. Účty a platby nejsou napojené.</div>
+      <div class="topbar">
+        <button class="burger" onclick="document.getElementById('sidebar').classList.toggle('open')">☰</button>
+        <div>
+          <h1 id="view-title">Přehled</h1>
+          <div class="crumb" id="view-crumb">Dobrý den, <span id="hello-name">Tom</span> 👋</div>
+        </div>
+        <div class="topbar-right">
+          <span id="scan-status" class="chip hidden"></span>
+          <button class="icon-btn" id="bell" title="Upozornění" onclick="toggleNotifPanel(event)">🔔<span id="bell-dot"></span></button>
+          <button class="btn ghost small" id="theme-toggle" type="button" onclick="toggleTheme()" aria-pressed="false" title="Přepnout vzhled">🌙 Tmavý režim</button>
+          <button class="btn small" id="scan-top" onclick="runScan()">⟳ Skenovat</button>
+          <button class="avatar-btn" id="avatar" title="Odhlásit" onclick="logout()">T</button>
+        </div>
+      </div>
+
+      <div class="notif-panel" id="notif-panel">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+          <b style="font-size:14px;">🔔 Upozornění</b>
+          <div style="display:flex;gap:6px;">
+            <button class="btn small ghost" onclick="showDigest()">📩 Denní souhrn</button>
+            <button class="btn small ghost" onclick="markAllRead()">✓ Přečteno</button>
+          </div>
+        </div>
+        <div id="notif-list"></div>
+      </div>
+
+      <!-- DASHBOARD -->
+      <div id="view-dashboard">
+        <section class="dashboard-heading" aria-label="Souhrn přehledu">
+          <div><div class="eyebrow">RYCHLÝ PŘEHLED</div><h2>Nové příležitosti</h2><p id="dash-lastscan">Poptávky a zakázky z řemesel na jednom místě.</p></div>
+        </section>
+        <section class="image-library" aria-label="Obrázky zakázek">
+          <div class="image-library-head"><div><h3>Obrázky zakázek</h3><p>Uložte si obrázky na jednom místě. Přejetím myši zobrazíte větší náhled.</p></div><label class="image-add" id="image-drop" for="image-files">＋ Přidat obrázky<input id="image-files" type="file" accept="image/*" multiple></label></div>
+          <div id="image-grid" class="image-grid" aria-live="polite"><div class="image-empty">Načítám obrázky…</div></div>
+        </section>
+        <div class="grid-stats" id="stats"></div>
+        <div class="dashboard-grid">
+        <div class="card">
+          <h2 class="card-title">Nejnovější zakázky</h2>
+          <div class="leads" id="dash-leads"></div>
+          <div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap;">
+            <button class="btn small ghost" onclick="setView('jobs')">Zobrazit všechny zakázky →</button>
+          </div>
+        </div>
+        <div class="card">
+          <h2 class="card-title">Průběh zakázek</h2>
+          <div id="funnel"></div>
+        </div>
+        </div>
+      </div>
+
+      <!-- JOBS -->
+      <div id="view-jobs" class="hidden">
+        <div class="card">
+          <div class="toolbar">
+            <div class="tabs">
+              <div class="tab active" data-tab="all" onclick="setTab('all', this)">Vše</div>
+              <div class="tab" data-tab="new" onclick="setTab('new', this)">Nové</div>
+              <div class="tab" data-tab="fav" onclick="setTab('fav', this)">⭐ Oblíbené</div>
+              <div class="tab" data-tab="pipeline" onclick="setTab('pipeline', this)">📊 Pipeline</div>
+            </div>
+            <span class="chip" title="Aplikace hledá pouze zakázky v Moravskoslezském kraji">📍 Moravskoslezský kraj</span>
+            <div class="search-box"><input type="text" id="local-filter" placeholder="Hledat ve výsledcích…" oninput="renderLeads()"></div>
+            <div style="display:flex;gap:8px;">
+              <button class="btn small ghost" id="export-csv" onclick="exportCsv()">Export CSV</button>
+              <button class="btn small ghost" onclick="confirmReset()">Reset paměti</button>
+            </div>
+          </div>
+          <div class="leads" id="results"></div>
+          <div class="log" id="log">Připraven. Sken hledá poptávky zákazníků na vybraných poptávkových portálech.</div>
+        </div>
+      </div>
+
+      <!-- FAVORITES -->
+      <div id="view-favorites" class="hidden">
+        <div class="card">
+          <h2 class="card-title">Oblíbené zakázky</h2>
+          <div class="leads" id="fav-list"></div>
+        </div>
+      </div>
+
+      <!-- CHAT -->
+      <div id="view-chat" class="hidden">
+        <div class="card chat-shell" style="padding:0;">
+          <section class="chat-list" aria-label="Seznam konverzací">
+            <div class="chat-list-head"><h2>Konverzace</h2><button class="btn small" onclick="showChatUserSearch()" type="button">+ Nový chat</button></div>
+            <div id="chat-user-search-box" class="hidden" style="margin-bottom:12px;"><input class="chat-search" id="chat-user-search" type="search" placeholder="Najít uživatele podle e-mailu…" oninput="searchChatUsers()" aria-label="Najít uživatele"><div class="chat-thread-list" id="chat-user-results"></div></div>
+            <input class="chat-search" id="chat-search" type="search" placeholder="Hledat konverzaci…" oninput="renderChatList()" aria-label="Hledat konverzaci">
+            <div class="chat-thread-list" id="chat-thread-list"></div>
+          </section>
+          <section class="chat-room" aria-label="Zprávy">
+            <div class="chat-room-head"><h2 id="chat-room-title">Vyberte konverzaci</h2><p id="chat-room-subtitle">Zprávy k zakázkám a kontaktům</p></div>
+            <div class="chat-notice" id="chat-notice">Chat propojuje uživatele Zakázkáře přes server. Pro psaní zpráv se přihlaste ke svému účtu.</div>
+            <div class="chat-messages" id="chat-messages"><div class="chat-empty">Založte konverzaci a ukládejte si k ní průběh domluvy s podnikatelem.</div></div>
+            <form class="chat-compose" onsubmit="sendChatMessage(event)"><textarea id="chat-message-input" placeholder="Napište zprávu…" aria-label="Text zprávy" disabled></textarea><button class="btn" id="chat-send" type="submit" disabled>Odeslat</button></form>
+          </section>
+        </div>
+      </div>
+
+      <!-- KEYWORDS -->
+        <div class="card">
+          <h2 class="card-title">Klíčová slova</h2>
+          <div class="row">
+            <div class="flex1"><div class="field"><label>Přidat slovo nebo frázi</label><input type="text" id="kw-new" placeholder="např. rekonstrukce koupelny" onkeydown="if(event.key==='Enter')addKeyword()"></div></div>
+            <button class="btn" onclick="addKeyword()">Přidat</button>
+          </div>
+          <div class="usage" style="margin-top:18px;">
+            <div class="lbl"><span id="kw-count"></span><span id="kw-limit"></span></div>
+            <div class="bar"><i id="kw-bar"></i></div>
+          </div>
+          <div id="kw-list" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:18px;"></div>
+        </div>
+      </div>
+
+      <!-- SOURCES -->
+      <div id="view-sources" class="hidden">
+        <div class="card">
+          <h2 class="card-title">Sledované poptávkové portály — Moravskoslezský kraj</h2>
+          <p style="color:var(--muted);font-size:13.5px;margin:0 0 4px;">Vyberte, které portály má Zakázkář při skenování prohledávat. Národní portály (Sbazar, AaaPoptávka, Nevyhazujto, Všezaodvoz, SuperSoused) se automaticky filtrují jen na zakázky z MSK — podle měst, PSČ (700–749, 78x, 79x) a zmínky kraje. Počet dostupných portálů závisí na tarifu.</p>
+          <div class="usage" style="margin-top:14px;">
+            <div class="lbl"><span id="portal-count"></span><span id="portal-limit"></span></div>
+            <div class="bar"><i id="portal-bar"></i></div>
+          </div>
+          <div class="portal-grid" id="portal-checkboxes"></div>
+          <p style="color:var(--muted);font-size:12.5px;margin:16px 0 0;">⏱ Doporučená frekvence: inzertní a komunitní zdroje (Avízo, Bazoš) skenovat každých 15–30 minut — u stěhování a havárií rozhodují minuty. Poptávkové systémy stačí 2–3× denně.</p>
+        </div>
+      </div>
+
+      <!-- BILLING -->
+      <div id="view-billing" class="hidden">
+        <div class="grid-stats">
+          <div class="stat-card"><div class="lbl">Aktuální tarif</div><div class="val" id="bill-plan" style="font-size:24px;">Profi</div><div class="delta up" id="bill-status">Aktivní · auto-obnova zapnuta</div></div>
+          <div class="stat-card"><div class="lbl">Měsíční cena</div><div class="val" id="bill-price" style="font-size:24px;">699 Kč</div><div class="delta mut">DPH včetně</div></div>
+          <div class="stat-card"><div class="lbl">Další faktura</div><div class="val" id="bill-next" style="font-size:24px;">1. 11. 2026</div><div class="delta mut" id="bill-method">Ukázka · platby nejsou aktivní</div></div>
+        </div>
+        <div class="card">
+          <h2 class="card-title">Změnit tarif</h2>
+          <div class="plans" style="gap:14px;">
+            <div class="plan" id="plan-card-start">
+              <h3 style="font-size:16px;">Start</h3>
+              <div class="amount" style="font-size:26px;">299 Kč<small>/měs</small></div>
+              <ul style="margin:12px 0 14px;gap:8px;"><li class="ok"><span class="tick">✓</span>4 portály · 10 slov</li><li><span class="cross">✕</span>CSV export</li></ul>
+              <button class="btn small ghost" onclick="changePlan('start')">Vybrat Start</button>
+            </div>
+            <div class="plan featured" id="plan-card-profi">
+              <h3 style="font-size:16px;">Profi</h3>
+              <div class="amount" style="font-size:26px;">699 Kč<small>/měs</small></div>
+              <ul style="margin:12px 0 14px;gap:8px;"><li class="ok"><span class="tick">✓</span>22 zdrojů v katalogu · neomezená slova</li><li class="ok"><span class="tick">✓</span>CSV export · notifikace</li></ul>
+              <button class="btn small" onclick="changePlan('profi')">Vybrat Profi</button>
+            </div>
+            <div class="plan" id="plan-card-firma">
+              <h3 style="font-size:16px;">Firemní</h3>
+              <div class="amount" style="font-size:26px;">1 490 Kč<small>/měs</small></div>
+              <ul style="margin:12px 0 14px;gap:8px;"><li class="ok"><span class="tick">✓</span>Vše z Profi + 3 uživatelé</li><li class="ok"><span class="tick">✓</span>Priority podpora</li></ul>
+              <button class="btn small ghost" onclick="changePlan('firma')">Vybrat Firemní</button>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <h2 class="card-title">Faktury</h2>
+          <table class="table">
+            <thead><tr><th>Číslo</th><th>Datum</th><th>Služba</th><th>Částka</th><th>Stav</th></tr></thead>
+            <tbody id="invoice-body"></tbody>
+          </table>
+        </div>
+        <div class="card">
+          <h2 class="card-title">Zrušit předplatné</h2>
+          <div class="setting-row">
+            <div class="info"><b>Auto-obnova předplatného</b><span>Tarif se každý měsíc automaticky obnoví. Můžete kdykoliv vypnout, služba běží do konce zaplaceného období.</span></div>
+            <label class="switch"><input type="checkbox" id="autorenew" checked onchange="toggleAutorenew(this)"><i></i></label>
+          </div>
+          <button class="btn danger small" style="margin-top:8px;" onclick="cancelSub()">Zrušit předplatné</button>
+        </div>
+      </div>
+
+      <!-- SETTINGS -->
+      <div id="view-settings" class="hidden">
+        <div class="card">
+          <h2 class="card-title">Profil</h2>
+          <div class="row">
+            <div class="flex1"><div class="field"><label for="set-name">Jméno / firma</label><input type="text" id="set-name" autocomplete="organization" placeholder="Jan Novák"></div></div>
+            <div class="flex1"><div class="field"><label for="set-email">E-mail</label><input type="email" id="set-email" autocomplete="email" placeholder="jan@firma.cz"></div></div>
+          </div>
+          <button class="btn small" style="margin-top:14px;" onclick="saveProfile()">Uložit profil</button>
+        </div>
+        <div class="card">
+          <h2 class="card-title">Notifikace a skenování</h2>
+          <div class="setting-row"><div class="info"><b>Automatický sken při otevření (ukázka)</b><span>Pokud uplynulo více než 24 hodin od posledního skenu, spustí se sken automaticky.</span></div><label class="switch"><input type="checkbox" id="set-autoscan" checked onchange="saveSettings()"><i></i></label></div>
+          <div class="setting-row"><div class="info"><b>E-mailové upozornění na nové zakázky <span class="lock-tag" id="email-lock">Profi</span></b><span>Denní souhrn nových zakázek na váš e-mail.</span></div><label class="switch"><input type="checkbox" id="set-emailnot" onchange="saveSettings()"><i></i></label></div>
+          <div class="setting-row"><div class="info"><b>Krátké textové SMS upozornění <span class="lock-tag">Firemní</span></b><span>Okamžité SMS při nalezení zakázky s vysokou shodou.</span></div><label class="switch"><input type="checkbox" onchange="toast('SMS notifikace jsou dostupné ve firemním tarifu.','warn');this.checked=false"><i></i></label></div>
+          <div class="setting-row"><div class="info"><b>Push notifikace v prohlížeči</b><span>Upozornění na ploše při nalezení nových zakázek (vyžaduje povolení v prohlížeči).</span></div><label class="switch"><input type="checkbox" id="set-push" onchange="requestPush(this)"><i></i></label></div>
+          <div class="setting-row"><div class="info"><b>Sken v otevřené aplikaci</b><span>Skenuje přes externí zprostředkovatele jen při otevřené aplikaci. Dostupnost zdrojů není zaručená.</span></div>
+            <select id="set-scanmin" class="status-select" style="color:var(--txt);" onchange="saveSettings()">
+              <option value="0">Vypnuto</option>
+              <option value="15">Každých 15 min</option>
+              <option value="30">Každých 30 min</option>
+              <option value="60">Každých 60 min</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toasts" aria-live="polite" aria-atomic="false"></div>
+
+<script>
+/* =====================================================
+   ZAKÁZKÁŘ — SaaS vrstva
+   ===================================================== */
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+
+const PLANS = {
+  start: { name:'Start', price:299, portals:4, keywords:10, csv:false, email:false },
+  profi: { name:'Profi', price:699, portals:Infinity, keywords:Infinity, csv:true, email:true },
+  firma: { name:'Firemní', price:1490, portals:Infinity, keywords:Infinity, csv:true, email:true }
+};
+
+const STATUSES = { new:'Nová', contacted:'Kontaktováno', offer:'Nabídka', won:'Vyhráno', lost:'Ztraceno' };
+
+const DEFAULT_KEYWORDS = ["zedník","omítky","sádrokarton","instalatér","topenář","obkladač","elektrikář","podlahář","plyn","beton","klimatizace","truhlář","tesař","střecha","klempíř","malíř","tapety","hodinový manžel","kominík","zámečník","sklenář","stěhování","vyklízení","odvoz","kontejner","bourání","likvidace"];
+
+const SOURCES = [
+  /* Poptávkové portály, řemeslné nabídky a inzerce; první čtyři jsou v základním tarifu. */
+  { id:'epoptavka', name:'ePoptávka.cz', tag:'poptávky zákazníků', msk:true, scan:true, url:'https://poptavky.epoptavka.cz/moravskoslezsky-kraj' },
+  { id:'poptavej', name:'Poptávej.cz — řemesla MSK', tag:'poptávky zákazníků', msk:true, scan:true, url:'https://www.poptavej.cz/poptavky/remesla/kraj-moravskoslezsky' },
+  { id:'poptavky', name:'Poptávky.cz', tag:'poptávky zákazníků', msk:true, scan:true, url:'https://www.poptavky.cz/poptavky/moravskoslezsky-kraj' },
+  { id:'nejremeslnici', name:'Nejřemeslníci.cz', tag:'poptávky řemesel', msk:true, scan:true, url:'https://nejremeslnici.cz/poptavky?kraj=moravskoslezsky' },
+  { id:'poptavkaeu', name:'Poptávka-EU.cz', tag:'poptávky zákazníků', msk:true, scan:true, url:'https://www.poptavka-eu.cz/kraje/CZ080/?filter=0' },
+  { id:'trh', name:'TrhPoptávek.cz', tag:'poptávky zákazníků', msk:true, scan:true, url:'https://trhpoptavek.cz/remesla/moravskoslezsky-kraj' },
+  { id:'zakazky', name:'Zakázky.služby.cz', tag:'poptávky služeb', msk:true, scan:true, url:'https://zakazky.sluzby.cz/remesla-profese/moravskoslezsky-kraj' },
+  { id:'aaapoptavka', name:'AAA Poptávka.cz', tag:'poptávky zákazníků', msk:false, scan:true, url:'https://www.aaapoptavka.cz/poptavky/prace' },
+  { id:'aaasubdodavky', name:'AAA Poptávka — subdodávky', tag:'poptávky subdodávek', msk:false, scan:true, url:'https://www.aaapoptavka.cz/poptavky/subdodavky' },
+  { id:'pop24', name:'Pop24.cz', tag:'poptávky řemesel', msk:false, scan:true, url:'https://pop24.cz/' },
+  { id:'hledamruce', name:'Hledám ruce', tag:'poptávky řemesel', msk:false, scan:true, url:'https://www.hledamruce.cz/' },
+  { id:'ceskestavby', name:'ČESKÉSTAVBY.cz — poptávky', tag:'stavební poptávky', msk:false, scan:true, url:'https://www.ceskestavby.cz/poptavka/' },
+  { id:'dohodni', name:'Dohodni.cz', tag:'poptávky služeb', msk:false, scan:true, url:'https://dohodni.com/' },
+  { id:'ubo', name:'UBO.cz', tag:'poptávky řemesel', msk:false, scan:true, url:'https://www.ubo.cz/' },
+  { id:'dalbovac', name:'Dalbovač.cz', tag:'stavební poptávky', msk:false, scan:true, url:'https://www.dalbovac.cz/' },
+  { id:'nejstav', name:'NejStav.cz', tag:'poptávky stavebních prací', msk:false, scan:true, url:'https://nejstav.cz/' },
+  /* Dřívější nevládní zdroje zůstávají dostupné pro sken. */
+  { id:'avizo', name:'Avízo.cz (služby a řemesla)', tag:'inzerce a nabídky služeb', msk:false, scan:true, url:'https://www.avizo.cz/sluzby-remesla/' },
+  { id:'bazos', name:'Bazoš.cz (služby)', tag:'inzerce a nabídky služeb', msk:true, scan:true, url:'https://sluzby.bazos.cz/moravskoslezsky/' },
+  { id:'sbazar', name:'Sbazar.cz (služby)', tag:'inzerce a nabídky služeb', msk:false, scan:true, url:'https://www.sbazar.cz/sluzby' },
+  { id:'supersoused', name:'SuperSoused.cz', tag:'drobné práce', msk:false, scan:true, url:'https://www.supersoused.cz/' },
+  { id:'nevyhazujto', name:'Nevyhazujto.cz', tag:'inzerce a nabídky služeb', msk:false, scan:true, url:'https://www.nevyhazujto.cz/' },
+  { id:'vsezaodvoz', name:'Všezaodvoz.cz', tag:'inzerce a nabídky služeb', msk:false, scan:true, url:'https://www.vsezaodvoz.cz/' },
+];
+
+/* ---- persistence ---- */
+const DB = 'zakazkar_v1';
+function load(key, fallback) { try { const v = JSON.parse(localStorage.getItem(DB+'_'+key)); return v===null||v===undefined?fallback:v; } catch(e){ return fallback; } }
+function save(key, val) { localStorage.setItem(DB+'_'+key, JSON.stringify(val)); }
+
+let session  = load('session', null);          // { name, email, plan, since, autorenew }
+let seen     = load('seen', {});
+let favs     = load('favs', []);
+let keywords = load('keywords', null) || [...DEFAULT_KEYWORDS];
+const EXPANDED_SOURCE_IDS = ['pop24','hledamruce','ceskestavby','dohodni','ubo','dalbovac','nejstav'];
+const EXPANDED_SOURCE_V2_IDS = [];
+const CLASSIFIED_SOURCE_IDS = new Set(['avizo','bazos','sbazar','nevyhazujto','vsezaodvoz']);
+let activePortals = load('portals', SOURCES.map(s=>s.id));
+let lastScan = load('last', 0);
+let invoices = load('invoices', []).filter(i => i && i.status !== 'Zaplaceno');
+let settings = load('settings', { autoscan:true, emailnot:false });
+settings.push = !!settings.push; settings.scanmin = settings.scanmin || 0;
+let crm = load('crm', {});      // { url: { status, note, updated } } — mini-CRM
+let notifs = load('notifs', []); // [{ text, ts, read }]
+let onlineUser = session?.onlineUser || null;
+let chatThreads = [];
+let activeChatId = null;
+let activeChatPeer = null;
+let chatMessages = [];
+let chatPollTimer = null;
+let chatUserSearchTimer = null;
+let presenceTimer = null;
+function isDemandLeadRecord(lead) {
+  if (!lead || !/^https?:\/\//i.test(String(lead.url||'')) || String(lead.title||'').trim().length < 14) return false;
+  const text = (String(lead.title||'')+' '+String(lead.excerpt||'')).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+  if (/#demo-|image\s*\d|registrace|prihlaseni|vytvorte si zdarma|uspesne ukonceno|vyzkouset nyni|vlastni www stranky|e shop|webove stranky|volne misto|pracovni pozice|pracovni nabidka|zivotopis|mzda|prijmeme|hledame zamestnance/.test(text)) return false;
+  return /poptav|hledam|hledame|shanim|shanime|potrebuji|potrebujeme|poptavam|poptavame|zakazku|zakazka|oprava|rekonstrukce|montaz|realizace|vymena|instalace|vyroba|zhotoveni|pokladka|bourani|vyklizeni|stehovani|odvoz|demontaz|zatepleni|vymalba|malovani|omitani|betonaz|likvidace|opravit|postavit/.test(text);
+}
+function dedupeLeadRecords(records) {
+  const urls = new Set(), signatures = new Set(), result = [];
+  for (const lead of records) {
+    if (!isDemandLeadRecord(lead) || !SOURCES.some(source=>source.name===lead.source)) continue;
+    const signature=leadSignature(lead), url=String(lead.url||'').split('#')[0];
+    if (urls.has(url) || (signature && signatures.has(signature))) continue;
+    urls.add(url); if(signature)signatures.add(signature); result.push(lead);
+  }
+  return result;
+}
+let leads = dedupeLeadRecords(load('leads', []) || []); // pouze poptávky, bez chybných karet a duplicit
+let currentView = 'dashboard';
+let currentTab = 'all';
+
+function applyTheme(mode) {
+  const dark = mode === 'dark';
+  document.body.classList.toggle('theme-dark', dark);
+  const button = $('#theme-toggle');
+  if (button) { button.textContent = dark ? '☀️ Světlý režim' : '🌙 Tmavý režim'; button.setAttribute('aria-pressed', String(dark)); button.title = dark ? 'Přepnout na světlý vzhled' : 'Přepnout na tmavý vzhled'; }
+}
+function toggleTheme() {
+  const mode = document.body.classList.contains('theme-dark') ? 'light' : 'dark';
+  try { localStorage.setItem('zakazkar_theme', mode); } catch (_) {}
+  applyTheme(mode);
+}
+function shareOnFacebook(url, title, location) {
+  const quote = [title, location].filter(Boolean).join(' · ');
+  const shareUrl = 'https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(url) + '&quote=' + encodeURIComponent(quote);
+  window.open(shareUrl, '_blank', 'noopener,noreferrer,width=720,height=640');
+}
+
+/* ---- toasts ---- */
+function toast(msg, type='') {
+  const t = document.createElement('div');
+  t.className = 'toast ' + type; t.textContent = msg;
+  $('#toasts').appendChild(t);
+  setTimeout(()=>{ t.style.opacity='0'; t.style.transition='opacity .4s'; setTimeout(()=>t.remove(),400); }, 3400);
+}
+
+/* ---- landing helpers ---- */
+function toggleFaq(btn) {
+  const item = btn.parentElement;
+  const open = item.classList.toggle('open');
+  btn.querySelector('span').textContent = open ? '－' : '＋';
+}
+
+/* ---- auth ---- */
+let authMode = 'login';
+function showAuth(mode) {
+  authMode = mode;
+  $('#auth-overlay').classList.add('show');
+  $('#auth-title').textContent = mode==='login' ? 'Přihlášení' : 'Založit účet';
+  $('#auth-hint').textContent = mode==='login' ? 'Přihlaste se ke svému účtu Zakázkáře.' : 'Vytvořte si účet pro online chat a přístup z dalších zařízení.';
+  $('#auth-pass').autocomplete = mode==='login' ? 'current-password' : 'new-password';
+  $('#auth-submit').textContent = mode==='login' ? 'Přihlásit se' : 'Vytvořit účet';
+  $('#auth-switch').innerHTML = mode==='login'
+    ? 'Nemáte účet? <a href="#" onclick="showAuth(\'signup\');return false;">Zaregistrujte se</a>'
+    : 'Už máte účet? <a href="#" onclick="showAuth(\'login\');return false;">Přihlaste se</a>';
+  $('#auth-err').style.display = 'none';
+}
+$('#auth-overlay').addEventListener('click', e => { if (e.target.id==='auth-overlay') e.target.classList.remove('show'); });
+
+async function submitAuth() {
+  const email = $('#auth-email').value.trim();
+  const pass = $('#auth-pass').value;
+  if (!/^\S+@\S+\.\S+$/.test(email)) { authFail('Zadejte platný e-mail.'); return; }
+  if (pass.length < 10) { authFail('Heslo musí mít alespoň 10 znaků.'); return; }
+  const name = email.split('@')[0].replace(/[._-]/g,' ').replace(/\b\w/g, c=>c.toUpperCase());
+  const button=$('#auth-submit');button.disabled=true;
+  try {
+    const endpoint=authMode==='login'?'/api/auth/login':'/api/auth/register';
+    const result=await chatApi(endpoint,{method:'POST',body:JSON.stringify({email,password:pass,name})});
+    createSession(result.user.name,result.user.email,'profi',result.user);
+    toast(authMode==='login'?'Přihlášení proběhlo.':'Účet byl vytvořen. Nyní můžete chatovat.','ok');
+  } catch(error) { authFail(error.message); }
+  finally { button.disabled=false; }
+}
+function authFail(msg){ const e=$('#auth-err'); e.textContent = msg; e.style.display='block'; }
+function demoLogin(){ createSession('Ukázkový účet','demo@zakazkar.cz','profi'); toast('Ukázková data se ukládají pouze v tomto prohlížeči.','warn'); }
+function startTrial(plan){ plan = PLANS[plan] ? plan : 'start'; $('#auth-overlay').classList.remove('show'); createSession('Nový zákazník','demo@zakazkar.cz', plan); toast('Ukázka tarifu '+PLANS[plan].name+' spuštěna. Nejde o skutečné předplatné ani zkušební období.','warn'); }
+function createSession(name, email, plan, user=null) {
+  onlineUser=user?{id:user.id,name:user.name,email:user.email}:null;
+  session = { name, email, plan, since: Date.now(), autorenew: true, ...(onlineUser?{onlineUser}: {}) };
+  save('session', session);
+  $('#auth-overlay').classList.remove('show');
+  enterApp();
+}
+function logout() {
+  if (!confirm('Odhlásit se?')) return;
+  if(presenceTimer)clearInterval(presenceTimer);
+  fetch('/api/auth/logout',{method:'POST',credentials:'same-origin'}).catch(()=>{}).finally(()=>{session=null;onlineUser=null;save('session',null);location.reload();});
+}
+
+/* ---- app shell ---- */
+function enterApp() {
+  $('#landing').classList.add('hidden');
+  $('#app').classList.remove('hidden');
+  $('#hello-name').textContent = session.name.split(' ')[0];
+  $('#avatar').textContent = session.name.trim().split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase();
+  if (!invoices) seedInvoices();
+  save('invoices', invoices);
+  if (!load('allOpportunitySourcesV1', false)) { activePortals = [...new Set([...activePortals, ...SOURCES.map(s=>s.id)])]; save('portals', activePortals); save('allOpportunitySourcesV1', true); }
+  initImageLibrary();
+  // aktivní portály vždy omez na ty, které dovoluje aktuální tarif
+  const enterPlan = PLANS[session.plan];
+  const enterAllowed = SOURCES.slice(0, enterPlan.portals).map(s=>s.id);
+  if (enterPlan.portals > 4 && !load('portalExpansionV1', false)) { activePortals = [...new Set([...activePortals, ...EXPANDED_SOURCE_IDS])]; save('portalExpansionV1', true); }
+  if (enterPlan.portals > 4 && !load('portalExpansionV2', false)) { activePortals = [...new Set([...activePortals, ...EXPANDED_SOURCE_V2_IDS])]; save('portalExpansionV2', true); }
+  activePortals = activePortals.filter(id => enterAllowed.includes(id)); save('portals', activePortals);
+  renderPortalCheckboxes(); renderKeywords(); renderBilling(); renderSettings();
+  if(presenceTimer)clearInterval(presenceTimer);
+  if(onlineUser)presenceTimer=setInterval(()=>chatApi('/api/auth/me').catch(()=>{}),20000);
+  setView('dashboard');
+  renderBell();
+  startAutoTimer();
+  if (settings.autoscan && Date.now()-lastScan > 24*60*60*1000) setTimeout(runScan, 900);
+}
+
+const VIEW_TITLES = { dashboard:['Přehled','Dobrý den'], jobs:['Zakázky','Poptávky pouze z Moravskoslezského kraje'], chat:['Chat','Konverzace k zakázkám a kontaktům'], favorites:['Oblíbené','Zakázky, které jste si uložili'], keywords:['Klíčová slova','Určete, jaké zakázky má Zakázkář hledat'], sources:['Portály','Zdroje pro Moravskoslezský kraj'], billing:['Fakturace','Tarif, platby a faktury'], settings:['Nastavení','Profil a notifikace'] };
+function setView(v) {
+  currentView = v;
+  $$('.nav-item').forEach(n => { n.classList.toggle('active', n.dataset.view===v); n.setAttribute('aria-current', n.dataset.view===v ? 'page' : 'false'); });
+  ['dashboard','jobs','chat','favorites','keywords','sources','billing','settings'].forEach(name => $('#view-'+name).classList.toggle('hidden', name!==v));
+  $('#view-title').textContent = VIEW_TITLES[v][0];
+  $('#view-crumb').innerHTML = VIEW_TITLES[v][1] + (v==='dashboard' ? ', <span id="hello-name">'+session.name.split(' ')[0]+'</span> 👋' : '');
+  $('#sidebar').classList.remove('open');
+  if (v==='dashboard') renderDashboard();
+  if (v==='jobs') renderLeads();
+  if (chatPollTimer) { clearInterval(chatPollTimer); chatPollTimer=null; }
+  if (v==='chat') { renderChat(); if(onlineUser){ refreshChatThreads(); chatPollTimer=setInterval(()=>{refreshChatThreads();if(activeChatId)refreshChatMessages();},3000); } }
+  if (v==='favorites') renderFavorites();
+}
+document.addEventListener('keydown', e => { if ((e.key==='Enter'||e.key===' ') && e.target.matches('.nav-item[role=button]')) { e.preventDefault(); setView(e.target.dataset.view); } });
+function setTab(t, el){ currentTab = t; $$('.tab').forEach(x=>{x.classList.remove('active');x.setAttribute('aria-selected','false');}); el.classList.add('active'); el.setAttribute('aria-selected','true'); renderLeads(); }
+
+/* ---- scan ---- */
+let running = false;
+const logEl = () => $('#log');
+function log(m){ const el=logEl(); if(!el) return; el.textContent += "\n" + m; el.scrollTop = el.scrollHeight; }
+
+function leadSignature(lead) {
+ const title=String(lead.title||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+ const place=String(lead.location||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/^msk\s*[·-]?\s*/, '').trim();
+ return title&&place?title+'|'+place:title;
+}
+
+async function runScan() {
+ if(running||!session)return;const btn=$('#scan-top'),chip=$('#scan-status');if(!btn||!chip)return;running=true;btn.disabled=true;chip.classList.remove('hidden');
+ const plan=PLANS[session.plan],allowed=SOURCES.slice(0,plan.portals).map(s=>s.id),toScan=SOURCES.filter(s=>activePortals.includes(s.id)&&allowed.includes(s.id)&&s.scan);
+ if(!toScan.length){running=false;btn.disabled=false;chip.classList.add('hidden');toast('Vyberte alespoň jeden portál v sekci Portály.','warn');setView('sources');return;}
+ const total=toScan.length;chip.textContent='⏳ Načítám '+total+' zdrojů…';logEl().textContent='▶ Hledám konkrétní poptávky: '+new Date().toLocaleTimeString('cs-CZ')+'\n▶ '+total+' portálů · '+keywords.length+' oborů · Moravskoslezský kraj';let failed=0,found=0,fresh=0;
+ try{const response=await fetch('/api/scan',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({keywords,sourceIds:toScan.map(s=>s.id)}),signal:AbortSignal.timeout(180000)});const data=await response.json().catch(()=>({}));if(!response.ok)throw Error(data.error||'Skener neodpověděl ('+response.status+').');const results=Array.isArray(data.items)?data.items:[],sources=Array.isArray(data.sources)?data.sources:[];failed=sources.filter(x=>x.error).length;sources.forEach(x=>log(x.error?'✗ '+x.source+': '+x.error:'✓ '+x.source+': '+(x.count||0)+' příležitostí'));
+ for(const item of results){if(!isDemandLeadRecord(item))continue;const signature=leadSignature(item);if(leads.some(old=>old.url===item.url||(signature&&leadSignature(old)===signature)))continue;const isNew=!seen[item.url];if(isNew){seen[item.url]=Date.now();fresh++;}leads.push({...item,isNew,found:Date.now()});found++;}
+ lastScan=Date.now();save('seen',seen);save('last',lastScan);save('leads',leads);renderDashboard();renderLeads();renderFavorites();if(failed===total){log('✖ Žádný portál se nepodařilo načíst. Zkontrolujte službu Zakázkář.');toast('Zdroje se nepodařilo načíst. Zavřete a znovu spusťte Zakázkář.','err');}else{if(fresh){toast('Nalezeno '+fresh+' nových poptávek.','ok');addNotif('Nalezeno '+fresh+' nových poptávek ('+(total-failed)+' portálů dostupných).');}else if(found)toast('Sken dokončen. Poptávky už máte uložené.','ok');else toast('Sken dokončen — žádná odpovídající nová poptávka.','warn');log('✔ Hotovo: '+found+' nových záznamů z '+(total-failed)+'/'+total+' zdrojů.'+(failed?' Některé portály neodpověděly.':''));}}
+ catch(error){log('✖ '+(error.message||'Sken se nepodařilo dokončit.'));toast(error.message||'Sken se nepodařilo dokončit.','err');}finally{btn.disabled=false;running=false;chip.classList.add('hidden');}
+}
+
+/* ---- rendering ---- */
+function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+function leadCard(l, dash) {
+  const isFav = favs.includes(l.url);
+  const ago = l.found ? Math.round((Date.now()-l.found)/3600000) : null;
+  const when = ago===null ? '' : ago < 1 ? 'právě teď' : ago < 24 ? 'před ' + ago + ' h' : 'před ' + Math.round(ago/24) + ' d';
+  const safeUrl = encodeURIComponent(l.url).replace(/[!'()*]/g, c=>'%'+c.charCodeAt(0).toString(16).toUpperCase());
+  const safeTitle = encodeURIComponent(l.title||'').replace(/[!'()*]/g, c=>'%'+c.charCodeAt(0).toString(16).toUpperCase());
+  const safeLocation = encodeURIComponent(l.location||'').replace(/[!'()*]/g, c=>'%'+c.charCodeAt(0).toString(16).toUpperCase());
+  return `<div class="lead ${l.isNew?'is-new':''}">
+    <div style="min-width:0">
+      <h3><a href="${escapeHtml(l.url)}" target="_blank" rel="noopener">${escapeHtml(l.title)}</a>${l.isNew?' <span class="badge new">NOVÉ</span>':''}</h3>${l.excerpt?`<p class="lead-description">${escapeHtml(l.excerpt)}</p>`:``}
+      <div class="meta"><span class="src">${escapeHtml(l.source)}</span><span class="badge plan">${escapeHtml(l.kind||'Poptávka')}</span><span>📍 ${escapeHtml(l.location||'Lokalita neuvedena')}</span>${l.postedLabel?'<span>📅 '+escapeHtml(l.postedLabel)+'</span>':''}${when?'<span>· '+when+'</span>':''}</div>
+    </div>
+    <div class="lead-actions">
+      <select class="status-select st-${(crm[l.url]&&crm[l.url].status)||'new'}" onchange="setStatus(decodeURIComponent('${safeUrl}'), this.value)" title="Stav zakázky">
+        ${Object.entries(STATUSES).map(([k,v]) => `<option value="${k}" ${((crm[l.url]&&crm[l.url].status)||'new')===k?'selected':''}>${v}</option>`).join('')}
+      </select>
+      <button class="icon-btn ${(crm[l.url]&&crm[l.url].note)?'active':''}" onclick="openNote(decodeURIComponent('${safeUrl}'))" title="Poznámka">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+      </button>
+      <button class="icon-btn ${isFav?'active':''}" onclick="toggleFav(decodeURIComponent('${safeUrl}'), this)" title="Oblíbené">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="${isFav?'currentColor':'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+      </button>
+      <button class="icon-btn facebook-share" onclick="shareOnFacebook(decodeURIComponent('${safeUrl}'),decodeURIComponent('${safeTitle}'),decodeURIComponent('${safeLocation}'))" title="Sdílet na Facebooku" aria-label="Sdílet na Facebooku">f</button>
+      <button class="icon-btn" onclick="copyLink(decodeURIComponent('${safeUrl}'))" title="Kopírovat odkaz">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+      </button>
+    </div>
+  </div>`;
+}
+
+function renderLeads() {
+  const wrap = $('#results'); if (!wrap) return;
+  wrap.classList.toggle('jobs-grid', currentTab!=='pipeline');
+  const q = ($('#local-filter')?.value || '').toLowerCase();
+  let data = [...leads];
+  if (q) data = data.filter(l => l.title.toLowerCase().includes(q) || (l.source||'').toLowerCase().includes(q) || (l.location||'').toLowerCase().includes(q));
+  if (currentTab==='fav') data = data.filter(l => favs.includes(l.url));
+  if (currentTab==='new') data = data.filter(l => l.isNew);
+  if (currentTab==='pipeline') {
+    let html = '';
+    Object.entries(STATUSES).forEach(([k,label]) => {
+      const g = data.filter(l => ((crm[l.url]&&crm[l.url].status)||'new')===k);
+      if (!g.length) return;
+      html += `<div class="pipeline-group"><h3>${label} <span class="cnt2">${g.length}</span></h3><div class="leads">${g.map(l=>leadCard(l)).join('')}</div></div>`;
+    });
+    wrap.innerHTML = html || '<div class="empty"><div class="big">📊</div>Pipeline je prázdná.<br>Nastavte zakázkám stav přímo v seznamu (Nová → Kontaktováno → Nabídka → …).</div>';
+    return;
+  }
+  data.sort((a,b) => (b.isNew?1:0)-(a.isNew?1:0) || (b.found||0)-(a.found||0));
+  wrap.innerHTML = data.length ? data.map(l=>leadCard(l)).join('') : '<div class="empty"><div class="big">📭</div>Zatím žádné zakázky. Spusťte sken tlačítkem „Skenovat“.</div>';
+}
+function renderFavorites() {
+  const wrap = $('#fav-list'); if (!wrap) return;
+  const data = leads.filter(l => favs.includes(l.url));
+  wrap.innerHTML = data.length ? data.map(l=>leadCard(l)).join('') : '<div class="empty"><div class="big">⭐</div>Zatím nemáte žádné oblíbené zakázky.<br>Označte si zakázky hvězdičkou v seznamu.</div>';
+}
+function renderDashboard() {
+  const newCount = leads.filter(l=>l.isNew).length;
+  const today = leads.filter(l=>!l.url.includes('#demo-') && l.found && Date.now()-l.found >= 0 && Date.now()-l.found < 86400000).length;
+  const favoriteCount = leads.filter(l=>favs.includes(l.url)).length;
+  const stats = [
+    ['Nové zakázky', newCount, newCount>0?'up':'mut', 'var(--green)'],
+    ['Zakázek dnes', today, 'mut', ''],
+    ['V oblíbených', favoriteCount, 'mut', ''],
+    ['Sledovaných slov', keywords.length, 'mut', '']
+  ];
+  $('#dash-lastscan').textContent = lastScan ? 'Poslední sken: ' + new Date(lastScan).toLocaleString('cs-CZ') + ' · Nové příležitosti máte připravené níže.' : 'Poptávky a obchodní pipeline na jednom místě.';
+  $('#stats').innerHTML = stats.map(s=>`
+    <div class="stat-card"><div class="lbl">${s[0]}</div><div class="val" ${s[3]?`style="color:${s[3]}"`:''}>${s[1]}</div><div class="delta ${s[2]==='up'?'up':s[2]==='mut'?'mut':'mut'}">${s[2]==='up'?'▲ čekají na vaši reakci':s[2]==='mut'?'':s[2]}</div></div>`).join('');
+  const top = [...leads].sort((a,b)=>(b.isNew?1:0)-(a.isNew?1:0) || (b.found||0)-(a.found||0)).slice(0,5);
+  $('#dash-leads').innerHTML = top.length ? top.map(l=>leadCard(l)).join('') : '<div class="empty"><div class="big">📭</div>Zatím tu nejsou žádné zakázky. Spusťte živý sken.</div>';
+  const nav = $('#nav-newcount');
+  nav.innerHTML = newCount>0 ? '<span class="cnt">'+newCount+'</span>' : '';
+  renderFunnel();
+}
+
+/* ---- uložené obrázky ---- */
+let imageDbPromise = null;
+let imageItems = [];
+let imageUrls = [];
+function openImageDb(){
+  if(imageDbPromise) return imageDbPromise;
+  imageDbPromise = new Promise((resolve,reject)=>{
+    if(!('indexedDB' in window)) return reject(new Error('Tento prohlížeč nepodporuje místní úložiště obrázků.'));
+    const request=indexedDB.open('zakazkar_images',1);
+    request.onupgradeneeded=()=>{if(!request.result.objectStoreNames.contains('images')) request.result.createObjectStore('images',{keyPath:'id'});};
+    request.onsuccess=()=>resolve(request.result);
+    request.onerror=()=>reject(request.error||new Error('Obrázky se nepodařilo načíst.'));
+  });
+  return imageDbPromise;
+}
+function imageTransaction(mode, action){
+  return openImageDb().then(db=>new Promise((resolve,reject)=>{
+    const tx=db.transaction('images',mode), store=tx.objectStore('images'); let request;
+    try{request=action(store);}catch(err){reject(err);return;}
+    tx.oncomplete=()=>resolve(request?.result); tx.onerror=tx.onabort=()=>reject(tx.error||new Error('Změnu se nepodařilo uložit.'));
+  }));
+}
+async function loadImages(){
+  const grid=$('#image-grid'); if(!grid) return;
+  try{ imageItems=await imageTransaction('readonly',store=>store.getAll()); renderImages(); }
+  catch(err){grid.innerHTML='<div class="image-empty">Obrázky se nepodařilo načíst. Zkuste aplikaci otevřít v běžném prohlížeči.</div>'; }
+}
+function renderImages(){
+  const grid=$('#image-grid'); if(!grid) return;
+  imageUrls.forEach(url=>URL.revokeObjectURL(url)); imageUrls=[];
+  const items=[...imageItems].sort((a,b)=>b.created-a.created);
+  if(!items.length){grid.innerHTML='<div class="image-empty">Zatím tu nejsou žádné obrázky. Přidejte první pomocí tlačítka výše.</div>';return;}
+  grid.innerHTML=items.map(item=>{
+    const url=URL.createObjectURL(item.blob), safe=escapeHtml(item.name); imageUrls.push(url);
+    return '<article class="image-card" title="'+safe+'"><img src="'+url+'" alt="'+safe+'" loading="lazy"><div class="image-zoom" aria-hidden="true"><img src="'+url+'" alt="'+safe+'"></div><button class="image-remove" type="button" data-remove-image="'+escapeHtml(item.id)+'" aria-label="Smazat '+safe+'" title="Smazat obrázek">Smazat</button></article>';
+  }).join('');
+  grid.querySelectorAll('[data-remove-image]').forEach(button=>button.addEventListener('click',()=>removeImage(button.dataset.removeImage)));
+}
+async function addImages(files){
+  const valid=[...files].filter(file=>file.type.startsWith('image/'));
+  const accepted=valid.filter(file=>file.size<=25*1024*1024);
+  if(valid.length>accepted.length) toast('Obrázky větší než 25 MB nebyly přidány.','warn');
+  if(!accepted.length){if(!valid.length)toast('Vyberte obrázky, například JPG nebo PNG.','warn');return;}
+  try{
+    const db=await openImageDb();
+    await new Promise((resolve,reject)=>{const tx=db.transaction('images','readwrite'),store=tx.objectStore('images');accepted.forEach((file,index)=>store.put({id:crypto.randomUUID?crypto.randomUUID():Date.now()+'-'+index+'-'+Math.random().toString(36).slice(2),name:file.name,blob:file,created:Date.now()+index}));tx.oncomplete=resolve;tx.onerror=tx.onabort=()=>reject(tx.error||new Error('V prohlížeči není dost místa.'));});
+    await loadImages(); toast('Přidáno '+accepted.length+' obrázků.','ok');
+  }catch(err){toast(err.message||'Obrázky se nepodařilo uložit.','err');}
+}
+async function removeImage(id){
+  try{await imageTransaction('readwrite',store=>store.delete(id));imageItems=imageItems.filter(item=>item.id!==id);renderImages();toast('Obrázek smazán.');}
+  catch(err){toast(err.message||'Obrázek se nepodařilo smazat.','err');}
+}
+function initImageLibrary(){
+  const input=$('#image-files'), zone=$('#image-drop');
+  if(input) input.addEventListener('change',()=>{addImages(input.files);input.value='';});
+  if(zone){zone.addEventListener('dragover',event=>{event.preventDefault();zone.classList.add('over');});zone.addEventListener('dragleave',()=>zone.classList.remove('over'));zone.addEventListener('drop',event=>{event.preventDefault();zone.classList.remove('over');addImages(event.dataTransfer.files);});}
+  loadImages();
+}
+
+/* ---- favs & copy ---- */
+function toggleFav(url, btn) {
+  const i = favs.indexOf(url);
+  if (i > -1) { favs.splice(i,1); btn.classList.remove('active'); btn.querySelector('svg').setAttribute('fill','none'); toast('Odebráno z oblíbených.'); }
+  else { favs.push(url); btn.classList.add('active'); btn.querySelector('svg').setAttribute('fill','currentColor'); toast('Uloženo do oblíbených.','ok'); }
+  save('favs', favs);
+  if (currentTab==='fav') renderLeads();
+  renderFavorites();
+  renderDashboard();
+}
+function copyLink(url){ navigator.clipboard?.writeText(url).then(()=>toast('Odkaz zkopírován.','ok')).catch(()=>{}); }
+
+/* ---- export (plan gated) ---- */
+function exportCsv() {
+  if (!PLANS[session.plan].csv) { toast('Export CSV je dostupný v tarifu Profi a Firemním.','warn'); setView('billing'); return; }
+  const data = currentTab==='fav' ? leads.filter(l=>favs.includes(l.url)) : leads;
+  if (!data.length) return toast('Není co exportovat.','warn');
+  const rows = [['Název','Portál','Lokalita','Odkaz']];
+  data.forEach(l => rows.push(['"'+l.title.replace(/"/g,'""')+'"','"'+l.source+'"','"'+(l.location||'MSK')+'"','"'+l.url+'"']));
+  const csv = rows.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\r\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob(['\ufeff'+csv], {type:'text/csv;charset=utf-8'}));
+  a.download = 'zakazkar_export_' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click();
+  toast('Export CSV stažen.','ok');
+}
+
+/* ---- reset ---- */
+function confirmReset(){
+  if (confirm('Vymazat evidenci dosud nalezených zakázek? Po dalším skenu se mohou znovu označit jako nové.')) {
+    seen = {}; save('seen', {}); leads.forEach(l=>l.isNew=true); save('leads', leads);
+    renderLeads(); renderDashboard(); toast('Paměť vymazána.','ok');
+  }
+}
+
+/* ---- keywords (plan gated) ---- */
+function renderKeywords() {
+  const plan = PLANS[session.plan];
+  const max = plan.keywords;
+  $('#kw-count').textContent = keywords.length + (max===Infinity?' klíčových slov':' / ' + max + ' klíčových slov');
+  $('#kw-limit').textContent = plan.name;
+  const pct = max===Infinity ? 12 : Math.min(100, keywords.length/max*100);
+  const bar = $('#kw-bar'); bar.style.width = pct+'%'; bar.classList.toggle('full', pct>=90 && max!==Infinity);
+  $('#kw-list').innerHTML = keywords.map((k,i)=>`<span class="chip">${escapeHtml(k)} <span style="cursor:pointer;font-weight:800;" onclick="delKeyword(${i})">×</span></span>`).join('');
+}
+function addKeyword() {
+  const inp = $('#kw-new'); const v = inp.value.trim().toLowerCase();
+  if (!v) return;
+  const plan = PLANS[session.plan];
+  if (keywords.length >= plan.keywords) { toast('Tarif '+plan.name+' umožňuje '+plan.keywords+' klíčových slov. Upgradujte tarif.','warn'); setView('billing'); return; }
+  if (keywords.includes(v)) return toast('Toto slovo už máte uložené.','warn');
+  keywords.push(v); save('keywords', keywords); inp.value='';
+  renderKeywords(); toast('Klíčové slovo přidáno.','ok');
+}
+function delKeyword(i){ keywords.splice(i,1); save('keywords', keywords); renderKeywords(); }
+
+/* ---- portals (plan gated) ---- */
+function renderPortalCheckboxes() {
+  const plan = PLANS[session.plan];
+  const allowed = SOURCES.slice(0, plan.portals);
+  $('#portal-count').textContent = activePortals.length + ' / ' + allowed.length + ' aktivních portálů';
+  $('#portal-limit').textContent = plan.name;
+  const pct = Math.min(100, activePortals.length/allowed.length*100);
+  const bar = $('#portal-bar'); bar.style.width = pct+'%';
+  $('#portal-checkboxes').innerHTML = SOURCES.map(s => {
+    const ok = allowed.find(a=>a.id===s.id) && s.scan;
+    const on = ok && activePortals.includes(s.id);
+    return `<label class="chk ${ok?'':'disabled'}"><input type="checkbox" value="${s.id}" ${on?'checked':''} ${ok?'':'disabled'} onchange="portalChange(this)"> ${escapeHtml(s.name)} ${s.tag?`<span class="tag">${escapeHtml(s.tag)}</span>`:''} ${ok?'':'<span class="lock">🔒 vyšší tarif</span>'}</label>`;
+  }).join('');
+}
+function portalChange(cb) {
+  const plan = PLANS[session.plan];
+  const allowed = SOURCES.slice(0, plan.portals).map(s=>s.id);
+  let next = [...$('#portal-checkboxes input')].filter(c=>c.checked).map(c=>c.value).filter(id=>allowed.includes(id));
+  if (cb.checked && next.length > allowed.length) { cb.checked=false; return; }
+  activePortals = next; save('portals', activePortals);
+  $('#portal-count').textContent = activePortals.length + ' / ' + allowed.length + ' aktivních portálů';
+  const bar = $('#portal-bar'); bar.style.width = Math.min(100, activePortals.length/allowed.length*100)+'%';
+}
+
+/* ---- billing ---- */
+function fmtDate(ts){ return new Date(ts).toLocaleDateString('cs-CZ'); }
+function seedInvoices() { invoices = []; save('invoices', invoices); }
+function renderBilling() {
+  const plan = PLANS[session.plan];
+  $('#bill-plan').textContent = plan.name;
+  $('#bill-price').textContent = plan.price.toLocaleString('cs-CZ') + ' Kč';
+  const next = new Date(); next.setMonth(next.getMonth()+1); next.setDate(1);
+  $('#bill-next').textContent = next.toLocaleDateString('cs-CZ');
+  $('#bill-status').textContent = session.autorenew ? 'Aktivní · auto-obnova zapnuta' : 'Aktivní · auto-obnova vypnuta';
+  $('#side-plan').textContent = plan.name;
+  $('#side-plan-note').textContent = plan.price + ' Kč/měs · další faktura ' + next.toLocaleDateString('cs-CZ');
+  $('#autorenew').checked = session.autorenew;
+  ['start','profi','firma'].forEach(p => {
+    const card = $('#plan-card-'+p);
+    card.style.outline = p===session.plan ? '2px solid var(--acc)' : 'none';
+    card.querySelector('button').textContent = p===session.plan ? 'Aktuální tarif' : 'Vybrat ' + PLANS[p].name;
+  });
+  $('#invoice-body').innerHTML = invoices.map(inv=>`<tr><td>${escapeHtml(inv.no)}</td><td>${fmtDate(inv.date)}</td><td>Předplatné Zakázkář — ${escapeHtml(inv.plan)}</td><td>${Number(inv.amount).toLocaleString('cs-CZ')} Kč</td><td><span class="badge plan">${escapeHtml(inv.status)}</span></td></tr>`).join('') || '<tr><td colspan="5" style="color:var(--muted)">V ukázce nejsou žádné skutečné faktury.</td></tr>';
+}
+function changePlan(p) {
+  if (p === session.plan) return toast('Tento tarif už používáte.','warn');
+  const plan = PLANS[p];
+  session.plan = p; save('session', session);
+  // Změna tarifu je demonstrační; nevzniká platba ani faktura.
+  save('invoices', invoices);
+  // enforce limits
+  const allowed = SOURCES.slice(0, plan.portals).map(s=>s.id);
+  if (plan.portals > 4 && !load('portalExpansionV1', false)) { activePortals = [...new Set([...activePortals, ...EXPANDED_SOURCE_IDS])]; save('portalExpansionV1', true); }
+  if (plan.portals > 4 && !load('portalExpansionV2', false)) { activePortals = [...new Set([...activePortals, ...EXPANDED_SOURCE_V2_IDS])]; save('portalExpansionV2', true); }
+  activePortals = activePortals.filter(id => allowed.includes(id)); save('portals', activePortals);
+  if (keywords.length > plan.keywords) { keywords = keywords.slice(0, plan.keywords); save('keywords', keywords); }
+  renderPortalCheckboxes(); renderKeywords(); renderBilling(); renderSettings(); renderDashboard();
+  toast('Ukázkový tarif změněn na ' + plan.name + '. Platba nebyla provedena.','warn');
+}
+function toggleAutorenew(cb) {
+  session.autorenew = cb.checked; save('session', session); renderBilling();
+  toast('Toto nastavení je pouze ukázkové; nepřepíná žádnou skutečnou platbu.','warn');
+}
+function cancelSub() {
+  if (!confirm('Toto je pouze ukázka. Změnit ukázkový stav předplatného?')) return;
+  session.autorenew = false; save('session', session); renderBilling();
+  toast('Ukázkový stav změněn. Skutečné předplatné není aktivní.','warn');
+}
+
+/* ---- settings ---- */
+function renderSettings() {
+  $('#set-name').value = session.name;
+  $('#set-email').value = session.email;
+  $('#set-autoscan').checked = settings.autoscan;
+  $('#set-emailnot').checked = settings.emailnot && PLANS[session.plan].email;
+  $('#set-push').checked = !!settings.push;
+  $('#set-scanmin').value = String(settings.scanmin||0);
+  const lock = $('#email-lock');
+  lock.textContent = PLANS[session.plan].email ? '' : 'Profi';
+  lock.style.display = PLANS[session.plan].email ? 'none' : 'inline-block';
+}
+function saveProfile() {
+  session.name = $('#set-name').value.trim() || session.name;
+  session.email = $('#set-email').value.trim() || session.email;
+  save('session', session);
+  $('#hello-name').textContent = session.name.split(' ')[0];
+  $('#avatar').textContent = session.name.trim().split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase();
+  toast('Profil uložen.','ok');
+}
+function saveSettings() {
+  settings.autoscan = $('#set-autoscan').checked;
+  settings.emailnot = $('#set-emailnot').checked;
+  settings.scanmin = parseInt(($('#set-scanmin')||{value:'0'}).value, 10) || 0;
+  if (settings.emailnot && !PLANS[session.plan].email) { settings.emailnot = false; $('#set-emailnot').checked = false; toast('E-mail notifikace jsou dostupné v tarifu Profi a Firemním.','warn'); }
+  save('settings', settings);
+}
+
+/* ---- mini-CRM: stavy a poznámky ---- */
+function setStatus(url, val) {
+  crm[url] = { status: val, note: (crm[url]&&crm[url].note)||'', updated: Date.now() };
+  save('crm', crm);
+  renderFunnel();
+  if (currentView==='dashboard') renderDashboard();
+  toast('Stav zakázky: ' + (STATUSES[val]||val), val==='won'?'ok':'');
+  if (val==='won') addNotif('🎉 Vyhráli jste zakázku: ' + (leads.find(l=>l.url===url)?.title||''));
+}
+let noteUrl = null;
+function openNote(url) {
+  noteUrl = url;
+  const l = leads.find(x=>x.url===url);
+  $('#note-title').textContent = l ? l.title : '';
+  $('#note-text').value = (crm[url]&&crm[url].note) || '';
+  $('#note-overlay').classList.add('show');
+}
+function saveNote() {
+  if (!noteUrl) return;
+  crm[noteUrl] = { status: (crm[noteUrl]&&crm[noteUrl].status)||'new', note: $('#note-text').value, updated: Date.now() };
+  save('crm', crm);
+  $('#note-overlay').classList.remove('show');
+  if (currentView==='jobs') renderLeads();
+  toast('Poznámka uložena.','ok');
+}
+
+/* ---- online chat ---- */
+async function chatApi(url, options={}) {
+  const response=await fetch(url,{credentials:'same-origin',headers:{'Content-Type':'application/json',...(options.headers||{})},...options});
+  const data=await response.json().catch(()=>({}));
+  if(!response.ok) throw new Error(data.error||'Chat server neodpovídá.');
+  return data;
+}
+function renderChatList() {
+  const list=$('#chat-thread-list'); if(!list)return;
+  const query=($('#chat-search')?.value||'').trim().toLocaleLowerCase('cs');
+  const visible=chatThreads.filter(t=>[t.peer.name,t.peer.email,t.latest.text].join(' ').toLocaleLowerCase('cs').includes(query));
+  list.innerHTML=visible.length?visible.map(t=>`<button type="button" class="chat-thread ${t.peerId===activeChatId?'active':''}" onclick="openChatThread('${t.peerId}')"><strong>${escapeHtml(t.peer.name)}${t.unread?` · ${t.unread} nové`:''}</strong><small>${escapeHtml(t.latest.text)}</small><span>${new Date(t.latest.ts).toLocaleString('cs-CZ',{dateStyle:'short',timeStyle:'short'})}</span></button>`).join(''):'<div class="chat-empty">Zatím nemáte žádné konverzace. Založte chat s registrovaným uživatelem.</div>';
+}
+function renderChat() {
+  renderChatList();
+  const thread=chatThreads.find(t=>t.peerId===activeChatId), peer=thread?.peer||(activeChatPeer?.id===activeChatId?activeChatPeer:null), messages=$('#chat-messages'), input=$('#chat-message-input'), button=$('#chat-send');
+  if(!onlineUser){$('#chat-room-title').textContent='Přihlášení je potřeba';$('#chat-room-subtitle').textContent='Chat je dostupný uživatelům s účtem';messages.innerHTML='<div class="chat-empty">Pro online chat si vytvořte účet nebo se přihlaste. Zkušební ukázka účty mezi lidmi nepropojuje.</div>';input.disabled=true;button.disabled=true;$('#chat-notice').textContent='K chatování je potřeba skutečný účet. Zprávy se ukládají na server a ostatním uživatelům se zobrazí průběžně.';return;}
+  if(!peer){$('#chat-room-title').textContent='Vyberte konverzaci';$('#chat-room-subtitle').textContent='Soukromé zprávy mezi uživateli aplikace';messages.innerHTML='<div class="chat-empty">Vyhledejte uživatele pomocí jeho jména nebo e-mailu a začněte konverzaci.</div>';input.disabled=true;button.disabled=true;return;}
+  $('#chat-room-title').textContent=peer.name;$('#chat-room-subtitle').textContent=(peer.online?'🟢 Právě online':'E-mail: '+peer.email)+' · soukromá konverzace';input.disabled=false;button.disabled=false;
+  renderChatMessages();
+}
+function renderChatMessages() {
+  const messages=$('#chat-messages'); if(!messages)return;
+  messages.innerHTML=chatMessages.length?chatMessages.map(m=>`<div class="chat-bubble ${m.from===onlineUser?.id?'':'received'}"><p>${escapeHtml(m.text)}</p><time>${m.from===onlineUser?.id?'Vy · ':''}${new Date(m.ts).toLocaleString('cs-CZ',{dateStyle:'short',timeStyle:'short'})}</time></div>`).join(''):'<div class="chat-empty">Konverzace je zatím prázdná. Napište první zprávu.</div>';
+  messages.scrollTop=messages.scrollHeight;
+}
+async function refreshChatThreads() {
+  if(!onlineUser)return;
+  try { const data=await chatApi('/api/chat/threads');chatThreads=data.threads||[];const active=chatThreads.find(t=>t.peerId===activeChatId);if(active)activeChatPeer={id:active.peerId,...active.peer};renderChatList(); }
+  catch(error){$('#chat-notice').textContent=error.message;}
+}
+async function openChatThread(id) { activeChatId=id;const thread=chatThreads.find(t=>t.peerId===id);if(thread)activeChatPeer={id,...thread.peer};chatMessages=[];renderChat();await refreshChatMessages(); }
+async function beginChatWith(id,name,email) { activeChatId=id;activeChatPeer={id,name:decodeURIComponent(name),email:decodeURIComponent(email)};$('#chat-user-search-box').classList.add('hidden');chatMessages=[];renderChat();await refreshChatMessages(); }
+async function refreshChatMessages() {
+  if(!onlineUser||!activeChatId)return;
+  try { const data=await chatApi('/api/chat/messages?with='+encodeURIComponent(activeChatId));chatMessages=data.messages||[];renderChatMessages(); }
+  catch(error){$('#chat-notice').textContent=error.message;}
+}
+function showChatUserSearch() {
+  const box=$('#chat-user-search-box');box.classList.toggle('hidden');
+  if(!box.classList.contains('hidden'))$('#chat-user-search').focus();
+}
+async function searchChatUsers() {
+  clearTimeout(chatUserSearchTimer);chatUserSearchTimer=setTimeout(async()=>{
+    const query=$('#chat-user-search').value.trim(),results=$('#chat-user-results');
+    if(query.length<2){results.innerHTML='<div class="chat-empty">Zadejte alespoň 2 znaky.</div>';return;}
+    try {
+      const data=await chatApi('/api/chat/users?q='+encodeURIComponent(query));
+      results.innerHTML=data.users.length?data.users.map(u=>`<button type="button" class="chat-thread" onclick="beginChatWith('${u.id}','${encodeURIComponent(u.name).replace(/'/g,'%27')}','${encodeURIComponent(u.email).replace(/'/g,'%27')}')"><strong>${escapeHtml(u.name)}${u.online?' · 🟢 online':''}</strong><small>${escapeHtml(u.email)}</small><span>Začít soukromý chat →</span></button>`).join(''):'<div class="chat-empty">Uživatel nebyl nalezen. Chatovat lze s lidmi, kteří si už vytvořili účet.</div>';
+    }catch(error){results.innerHTML=`<div class="chat-empty">${escapeHtml(error.message)}</div>`;}
+  },250);
+}
+async function sendChatMessage(event) {
+  event.preventDefault();const text=$('#chat-message-input').value.trim();if(!text||!activeChatId)return;
+  const button=$('#chat-send');button.disabled=true;
+  try { await chatApi('/api/chat/messages',{method:'POST',body:JSON.stringify({to:activeChatId,text})});$('#chat-message-input').value='';await refreshChatThreads();await refreshChatMessages(); }
+  catch(error){toast(error.message,'warn');}
+  finally{button.disabled=false;$('#chat-message-input').focus();}
+}
+
+function renderFunnel() {
+  const el = $('#funnel'); if (!el) return;
+  const counts = {};
+  leads.forEach(l => { const status = (crm[l.url] && crm[l.url].status) || 'new'; counts[status] = (counts[status]||0)+1; });
+  const stages = [['contacted','Kontaktováno'],['offer','Nabídka odeslána'],['won','Vyhráno']];
+  const max = Math.max(1, ...stages.map(s=>counts[s[0]]||0));
+  const rows = stages.map(([k,label]) => {
+    const v = counts[k]||0;
+    return `<div class="usage" style="margin-bottom:12px;"><div class="lbl"><span>${label}</span><span>${v}</span></div><div class="bar"><i style="width:${Math.min(100,v/max*100)}%;${k==='won'?'background:var(--green);':''}"></i></div></div>`;
+  }).join('');
+  const won = counts.won||0, lost = counts.lost||0, closed = won+lost;
+  const rate = closed ? Math.round(won/closed*100) : 0;
+  el.innerHTML = rows + `<div style="display:flex;justify-content:space-between;font-size:13px;color:var(--muted);margin-top:14px;flex-wrap:wrap;gap:8px;">
+    <span><b style="color:var(--green);">Vyhráno: ${won}</b> · <span style="color:var(--red);">Ztraceno: ${lost}</span></span>
+    <span>Úspěšnost uzavřených: <b style="color:var(--txt);">${rate}%</b></span></div>`;
+}
+
+/* ---- notifikace ---- */
+function addNotif(text) {
+  notifs.unshift({ text, ts: Date.now(), read:false });
+  notifs = notifs.slice(0, 50);
+  save('notifs', notifs);
+  renderBell();
+}
+function renderBell() {
+  const dot = $('#bell-dot'); if (!dot) return;
+  const unread = notifs.filter(n=>!n.read).length;
+  dot.style.display = unread ? 'block' : 'none';
+  $('#notif-list').innerHTML = notifs.length
+    ? notifs.map(n=>`<div class="notif-item ${n.read?'':'unread'}"><div>${escapeHtml(n.text)}</div><small style="color:var(--muted);">${new Date(n.ts).toLocaleString('cs-CZ')}</small></div>`).join('')
+    : '<div class="empty" style="padding:22px;">Žádná upozornění.<br>Po skenu se tady objeví nové zakázky.</div>';
+}
+function toggleNotifPanel(e) { e.stopPropagation(); $('#notif-panel').classList.toggle('open'); }
+function markAllRead() { notifs.forEach(n=>n.read=true); save('notifs', notifs); renderBell(); }
+document.addEventListener('click', e => {
+  const p = $('#notif-panel');
+  if (p && p.classList.contains('open') && !p.contains(e.target)) p.classList.remove('open');
+});
+
+/* ---- denní souhrn ---- */
+function showDigest() {
+  const day = leads.filter(l => !l.url.includes('#demo-') && l.found && Date.now()-l.found < 86400000);
+  const fresh = day.filter(l=>l.isNew);
+  let body = `Zakázkář — denní souhrn (${new Date().toLocaleDateString('cs-CZ')})\n\nNové zakázky za 24 h: ${day.length}\nOznačené jako NOVÉ: ${fresh.length}\n\n`;
+  day.slice(0,10).forEach(l => { body += '• ' + l.title + ' — ' + (l.location||'MSK') + ' (' + l.source + ')\n  ' + l.url + '\n'; });
+  $('#digest-body').innerHTML =
+    `<p style="margin:0 0 14px;">Nové zakázky za 24 h: <b>${day.length}</b> · Označené NOVÉ: <b style="color:var(--green);">${fresh.length}</b></p>` +
+    (day.length
+      ? day.slice(0,10).map(l=>`<div class="notif-item">📍 ${escapeHtml(l.location||'MSK')} · <b>${escapeHtml(l.title)}</b><br><small>${escapeHtml(l.source)}</small></div>`).join('')
+      : '<p style="color:var(--muted);">Za posledních 24 h nic nového. Spusťte sken.</p>');
+  $('#digest-mailto').href = 'mailto:?subject=' + encodeURIComponent('Zakázkář — denní souhrn poptávek') + '&body=' + encodeURIComponent(body);
+  $('#digest-overlay').classList.add('show');
+}
+
+/* ---- push notifikace a automatický sken ---- */
+function requestPush(cb) {
+  if (typeof Notification === 'undefined') { cb.checked=false; return toast('Tento prohlížeč push notifikace nepodporuje.','warn'); }
+  if (cb.checked) {
+    Notification.requestPermission().then(p => {
+      settings.push = (p === 'granted');
+      cb.checked = settings.push;
+      save('settings', settings);
+      toast(settings.push ? 'Push notifikace povoleny.' : 'Povolení bylo v prohlížeči zamítnuto.', settings.push?'ok':'warn');
+      if (settings.push) { try { new Notification('Zakázkář', { body:'Push je zapnutý. Ozveme se, když najdeme nové zakázky.' }); } catch(e){} }
+    });
+  } else { settings.push = false; save('settings', settings); }
+}
+let autoTimer = null;
+function startAutoTimer() {
+  if (autoTimer) clearInterval(autoTimer);
+  autoTimer = setInterval(() => {
+    if (settings.scanmin > 0 && !running && session && Date.now()-lastScan >= settings.scanmin*60000) runScan();
+  }, 60000);
+}
+
+function cleanupFacebookData(){
+  const isFacebookLead = lead => /facebook|\bfb\b/i.test(String(lead?.source||'')) || /facebook\.com/i.test(String(lead?.url||''));
+  const savedLeads=(load('leads',[])||[]).filter(lead=>!isFacebookLead(lead));
+  leads=dedupeLeadRecords(savedLeads); save('leads',leads);
+  const validUrls=new Set(leads.map(lead=>lead.url));
+  favs=(load('favs',[])||[]).filter(url=>!isFacebookLead({url})&&validUrls.has(url));save('favs',favs);
+  crm=Object.fromEntries(Object.entries(load('crm',{})||{}).filter(([url])=>!isFacebookLead({url})&&validUrls.has(url)));save('crm',crm);
+  seen=Object.fromEntries(Object.entries(load('seen',{})||{}).filter(([url])=>!isFacebookLead({url})&&validUrls.has(url)));save('seen',seen);
+  notifs=(load('notifs',[])||[]).filter(item=>!/(facebook|\bfb\b)/i.test(String(item?.text||'')));save('notifs',notifs);
+  activePortals=(load('portals',activePortals)||[]).filter(id=>id!=='facebook');save('portals',activePortals);
+  save('facebookCleanupV1',true);save('leadCleanupV2',true);
+  if(!load('facebookCleanupV1Images',false)){
+    try{const req=indexedDB.deleteDatabase('zakazkar_screenshots');req.onsuccess=()=>{};req.onerror=()=>{};req.onblocked=()=>console.warn('Zavřete ostatní otevřené kopie aplikace a obnovte stránku pro odstranění starých obrázků.');}catch(_){}
+    save('facebookCleanupV1Images',true);
+  }
+}
+
+/* ---- boot ---- */
+(function boot(){
+  let savedTheme = 'light';
+  try { savedTheme = localStorage.getItem('zakazkar_theme') || 'light'; } catch (_) {}
+  applyTheme(savedTheme);
+  cleanupFacebookData();
+  if(session?.onlineUser) chatApi('/api/auth/me').then(result=>{onlineUser=result.user;session.onlineUser=result.user;save('session',session);enterApp();}).catch(()=>{session=null;onlineUser=null;save('session',null);});
+  else if(session) enterApp();
+})();
+</script>
+</body>
+</html>
