@@ -1,20 +1,25 @@
 @echo off
 setlocal
-set "HOST=0.0.0.0"
-set "PORT=8767"
-set "APP=http://127.0.0.1:8767/mobilni-zakazkar.html"
 set "NODE=%USERPROFILE%\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe"
-if not exist "%NODE%" (
-  set "NODE="
-  for /f "delims=" %%N in ('where node 2^>nul') do if not defined NODE set "NODE=%%N"
-)
-if not defined NODE (
-  echo CHYBI NODE.JS. Nainstalujte Node.js nebo spustte balicek v pocitaci se Zakazkarem.
+set "SERVER=%~dp0server.js"
+if not exist "%SERVER%" (
+  echo Soubor server.js nebyl nalezen.
   pause
   exit /b 1
 )
-echo Spoustim mobilni Zakazkar. Toto okno nechte otevrene.
-start "" "%APP%"
-"%NODE%" "%~dp0zakazkar-server.js"
-echo Server byl ukoncen.
+if not exist "%NODE%" (
+  for /f "delims=" %%N in ('where node 2^>nul') do if not defined NODE_FOUND set "NODE_FOUND=%%N"
+  if defined NODE_FOUND set "NODE=%NODE_FOUND%"
+)
+if not exist "%NODE%" (
+  echo Nepodarilo se najit Node.js.
+  pause
+  exit /b 1
+)
+set "PORT=8766"
+echo Spoustim mobilniho Zakazkare na http://127.0.0.1:8766/
+start "" /b "%NODE%" "%SERVER%"
+timeout /t 3 /nobreak >nul
+start "" "http://127.0.0.1:8766/"
+echo Serverove okno nechte otevrene. Aplikace se otevre v prohlizeci.
 pause

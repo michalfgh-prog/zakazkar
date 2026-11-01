@@ -1,0 +1,31 @@
+NÁVOD – KOMPLETNÍ MOBILNÍ ZAKÁZKÁŘ
+
+CO JE V BALÍČKU
+- Mobilní aplikace s částmi Poptávky a Naše tipy.
+- Server pro vyhledávání, účty, příspěvky, fotky, lajky a komentáře.
+- Původní aplikace, dostupná na /zakazkar-vylepsena.html.
+- Spustit-mobilni-Zakazkar.bat pro jednoduché spuštění na počítači.
+
+SPUŠTĚNÍ NA POČÍTAČI
+1. Rozbalte celý ZIP do jedné složky. Nepřesouvejte soubory ze složky serveru zvlášť.
+2. Pokud už běží starý černý server, zavřete jeho okno.
+3. Dvojklikem spusťte Spustit-mobilni-Zakazkar.bat. Černé okno nechte otevřené.
+4. Aplikace se otevře na http://127.0.0.1:8766/.
+5. Adresa /api/health je pouze kontrola serveru, není to stránka aplikace.
+
+ZVEŘEJNĚNÍ PŘES GITHUB A RENDER
+1. Rozbalte ZIP.
+2. Nahrajte OBSAH složky přímo do kořene GitHub repozitáře. Ne pouze ZIP a ne do podsložky. Při výzvě potvrďte nahrazení souborů.
+3. V Renderu použijte Web Service a nechte Root Directory prázdné.
+4. Build Command nastavte na npm install.
+5. Start Command nastavte na npm start.
+6. V Renderu klikněte Manual Deploy → Deploy latest commit.
+7. Po dokončení otevřete veřejnou adresu služby Render, bez /api/health.
+
+Pro nasazení jsou hlavní soubory package.json, server.js, mobilni-zakazkar.html a zakazkar-vylepsena.html. Musí být přímo vedle sebe v kořeni repozitáře.
+
+NAŠE TIPY
+Pro přidávání, lajkování a komentování se uživatel přihlásí nebo vytvoří účet. Heslo musí mít alespoň 10 znaků. Každý přihlášený uživatel může publikovat vlastní tip i fotografii.
+
+UPOZORNĚNÍ K DATŮM
+Data chatů a tipů jsou nyní ukládána na disk serveru. Bez trvalého disku nebo databáze mohou být data na bezplatném Renderu po restartu ztracena.
