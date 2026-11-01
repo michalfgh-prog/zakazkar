@@ -3,7 +3,7 @@ NÁVOD – ZAKÁZKÁŘ S DATABÁZÍ A CHATEM
 CO BALÍČEK OBSAHUJE
 - Mobilní aplikaci s Poptávkami a Našimi tipy.
 - Server pro registraci, přihlášení a soukromé zprávy mezi uživateli.
-- PostgreSQL ukládání účtů, přihlašovacích relací a zpráv.
+- PostgreSQL ukládání účtů, přihlašovacích relací, zpráv, příspěvků, lajků a komentářů.
 - Spuštění na počítači a nasazení na Render.
 
 NASAZENÍ A DATABÁZE NA RENDERU
@@ -15,7 +15,8 @@ NASAZENÍ A DATABÁZE NA RENDERU
 6. Nahrajte obsah rozbaleného ZIPu přímo do kořene GitHub repozitáře. Soubory package.json, server.js a mobilni-zakazkar.html musí být přímo vedle sebe.
 7. V Renderu nastavte Root Directory prázdné, Build Command npm install a Start Command npm start.
 8. Spusťte Manual Deploy → Deploy latest commit.
-9. Po nasazení otevřete hlavní adresu webové služby. Registrace, účty a chat se ukládají do PostgreSQL.
+9. Po nasazení otevřete hlavní adresu webové služby. Registrace, účty, chat a příspěvky včetně lajků a komentářů se ukládají do PostgreSQL.
+10. Ověřte adresu /api/health. Při správném nastavení musí odpověď obsahovat "version":"1.2.0", "database":"postgresql" a "feedStorage":"postgresql".
 
 BEZPEČNOST
 DATABASE_URL obsahuje přihlašovací údaje do databáze. Vkládejte ji pouze do Render → Environment. Nikdy ji neukládejte do GitHubu, neposílejte v chatu ani nevkládejte do HTML souboru. Aplikace používá interní adresu databáze z Renderu.
@@ -24,4 +25,4 @@ LOKÁLNÍ SPUŠTĚNÍ
 Dvojklikem spusťte Spustit-mobilni-Zakazkar.bat. Bez DATABASE_URL funguje jen lokálně přes soubor; místní zprávy a účty se nesynchronizují s Renderem. /api/health je jen kontrolní adresa, aplikace je na hlavní adrese.
 
 ÚLOŽIŠTĚ TIPŮ
-Příspěvky, fotografie, lajky a komentáře „Našich tipů“ zůstávají zatím v souboru služby. Pro jejich zachování po restartu bude potřeba přesunout také feed do PostgreSQL nebo objektového úložiště.
+Příspěvky, fotografie, lajky a komentáře „Našich tipů“ se ukládají do PostgreSQL, pokud je na Renderu správně nastavené DATABASE_URL. Fotografie jsou kvůli velikosti příspěvku zmenšené v prohlížeči.

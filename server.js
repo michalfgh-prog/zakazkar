@@ -8,6 +8,7 @@ const PORT = Number(process.env.PORT) || 8766;
 const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, 'data');
 const DATA_FILE = path.join(DATA_DIR, 'online-data.json');
 const DATABASE_URL = process.env.DATABASE_URL || '';
+const APP_VERSION = '1.2.0';
 const READER = 'https://r.jina.ai/';
 const MAX_BODY = 64 * 1024;
 const MIN_READER_INTERVAL_MS = 3100;
@@ -39,6 +40,11 @@ async function initializeDatabase() {
     );
     CREATE INDEX IF NOT EXISTS chat_messages_sender_created_idx ON chat_messages(sender_id, created);
     CREATE INDEX IF NOT EXISTS chat_messages_recipient_created_idx ON chat_messages(recipient_id, created);
+    CREATE TABLE IF NOT EXISTS community_posts (
+      id TEXT PRIMARY KEY, author_id TEXT NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
+      payload JSONB NOT NULL, created BIGINT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS community_posts_created_idx ON community_posts(created DESC);
   `);
   for (const u of onlineData.users) {
     await dbPool.query(`INSERT INTO app_users(id,name,email,role,password_hash,salt,created)
@@ -53,6 +59,16 @@ async function initializeDatabase() {
     await dbPool.query(`INSERT INTO chat_messages(id,sender_id,recipient_id,body,created,read_at)
       VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(id) DO NOTHING`,[m.id,m.from,m.to,m.text,m.ts,m.readAt||null]);
   }
+  const databaseAuthors=new Map((await dbPool.query('SELECT id,name FROM app_users')).rows.map(author=>[author.id,author.name]));
+  for (const post of onlineData.posts) {
+    const author=onlineData.users.find(u=>u.id===post.authorId);
+    const authorName=post.authorName||author?.name||databaseAuthors.get(post.authorId);
+    if(!authorName) continue;
+    const payload={...post,authorName};
+    await dbPool.query(`INSERT INTO community_posts(id,author_id,payload,created)
+      VALUES($1,$2,$3::jsonb,$4) ON CONFLICT(id) DO NOTHING`,
+      [payload.id,payload.authorId,JSON.stringify(payload),payload.created||Date.now()]);
+  }
   const [users,sessions] = await Promise.all([
     dbPool.query('SELECT id,name,email,role,password_hash AS "passwordHash",salt,created FROM app_users'),
     dbPool.query('SELECT token_hash AS "tokenHash",user_id AS "userId",expires FROM app_sessions WHERE expires > $1',[Date.now()])
@@ -66,6 +82,52 @@ function saveOnlineData() {
   const temp = DATA_FILE + '.tmp';
   fs.writeFileSync(temp, JSON.stringify(onlineData), { mode:0o600 });
   fs.renameSync(temp, DATA_FILE);
+}
+async function readFeedPosts() {
+  if (!dbPool) return onlineData.posts;
+  const {rows}=await dbPool.query('SELECT payload FROM community_posts ORDER BY created DESC LIMIT 500');
+  return rows.map(row=>row.payload);
+}
+async function readFeedPost(id) {
+  if (!dbPool) return onlineData.posts.find(post=>post.id===id)||null;
+  const {rows}=await dbPool.query('SELECT payload FROM community_posts WHERE id=$1',[id]);
+  return rows[0]?.payload||null;
+}
+async function writeFeedPost(post) {
+  if (dbPool) {
+    await dbPool.query(`INSERT INTO community_posts(id,author_id,payload,created)
+      VALUES($1,$2,$3::jsonb,$4)
+      ON CONFLICT(id) DO UPDATE SET payload=EXCLUDED.payload,created=EXCLUDED.created`,
+      [post.id,post.authorId,JSON.stringify(post),post.created]);
+  }
+  const index=onlineData.posts.findIndex(item=>item.id===post.id);
+  if(index<0) onlineData.posts.push(post); else onlineData.posts[index]=post;
+  if(!dbPool) saveOnlineData();
+}
+async function updateFeedPost(id, updater) {
+  if (!dbPool) {
+    const post=onlineData.posts.find(item=>item.id===id);
+    if(!post) return null;
+    const result=updater(post);
+    saveOnlineData();
+    return {post,result};
+  }
+  const client=await dbPool.connect();
+  try {
+    await client.query('BEGIN');
+    const {rows}=await client.query('SELECT payload FROM community_posts WHERE id=$1 FOR UPDATE',[id]);
+    if(!rows.length){await client.query('ROLLBACK');return null;}
+    const post=rows[0].payload;
+    const result=updater(post);
+    await client.query('UPDATE community_posts SET payload=$2::jsonb WHERE id=$1',[id,JSON.stringify(post)]);
+    await client.query('COMMIT');
+    const index=onlineData.posts.findIndex(item=>item.id===id);
+    if(index<0) onlineData.posts.push(post); else onlineData.posts[index]=post;
+    return {post,result};
+  } catch(error) {
+    try { await client.query('ROLLBACK'); } catch {}
+    throw error;
+  } finally { client.release(); }
 }
 if(onlineData.users.length&&!onlineData.users.some(u=>u.role==='admin')){onlineData.users[0].role='admin';try{saveOnlineData();}catch{}}
 function sha256(value) { return crypto.createHash('sha256').update(String(value)).digest('hex'); }
@@ -361,32 +423,37 @@ async function handleOnlineApi(req,res,url) {
       const match=url.pathname.match(/^\/api\/feed\/posts(?:\/([^/]+)(?:\/(like|comments|share))?)?$/);
       if(!match)return json(res,404,{error:'Nenalezeno.'});
       const [,postId,action]=match;
-      const compactPost=post=>{
-        const author=onlineData.users.find(u=>u.id===post.authorId)||{name:'Uživatel Zakázkáře'};
+      const compactPost=(post,allPosts=onlineData.posts)=>{
+        const author=onlineData.users.find(u=>u.id===post.authorId)||{name:post.authorName||'Uživatel Zakázkáře'};
         const comments=(post.comments||[]).slice(-20).map(c=>({id:c.id,authorName:c.authorName,text:c.text,ts:c.ts}));
-        const shared=post.shareOf?onlineData.posts.find(p=>p.id===post.shareOf):null;
+        const shared=post.shareOf?allPosts.find(p=>p.id===post.shareOf):null;
         const sharedAuthor=shared?onlineData.users.find(u=>u.id===shared.authorId):null;
-        return {id:post.id,authorId:post.authorId,authorName:author.name,title:post.title||'',body:post.body||'',location:post.location||'',imageUrl:post.imageUrl||'',created:post.created,shareOf:post.shareOf||null,shared:shared?{authorName:sharedAuthor?.name||'Uživatel Zakázkáře',title:shared.title||'',body:shared.body||'',location:shared.location||'',imageUrl:shared.imageUrl||''}:null,likesCount:(post.likes||[]).length,likedByMe:(post.likes||[]).includes(user.id),commentsCount:(post.comments||[]).length,comments,sharesCount:onlineData.posts.filter(p=>p.shareOf===post.id).length};
+        return {id:post.id,authorId:post.authorId,authorName:post.authorName||author.name,title:post.title||'',body:post.body||'',location:post.location||'',imageUrl:post.imageUrl||'',created:post.created,shareOf:post.shareOf||null,shared:shared?{authorName:shared.authorName||sharedAuthor?.name||'Uživatel Zakázkáře',title:shared.title||'',body:shared.body||'',location:shared.location||'',imageUrl:shared.imageUrl||''}:null,likesCount:(post.likes||[]).length,likedByMe:(post.likes||[]).includes(user.id),commentsCount:(post.comments||[]).length,comments,sharesCount:allPosts.filter(p=>p.shareOf===post.id).length};
       };
-      if(req.method==='GET'&&postId===undefined) return json(res,200,{posts:[...onlineData.posts].sort((a,b)=>b.created-a.created).slice(0,100).map(compactPost),canPost:true});
+      if(req.method==='GET'&&postId===undefined) {
+        const posts=await readFeedPosts();
+        return json(res,200,{posts:[...posts].sort((a,b)=>b.created-a.created).slice(0,100).map(post=>compactPost(post,posts)),canPost:true});
+      }
       if(req.method==='POST'&&postId===undefined) {
         const input=await readJson(req,2*1024*1024),title=String(input.title||'').trim(),body=String(input.body||'').trim(),location=String(input.location||'').trim(),imageUrl=String(input.imageUrl||'').trim();
         if((!title&&!body&&!imageUrl)||title.length>140||body.length>4000||location.length>120)return json(res,400,{error:'Přidejte text, titulek nebo obrázek. Zkontrolujte také délku údajů.'});
         if(imageUrl.startsWith('data:')){if(imageUrl.length>1800000||!/^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/]+=*$/.test(imageUrl))return json(res,400,{error:'Obrázek je příliš velký nebo má nepodporovaný formát.'});}
         else if(imageUrl){try{const image=new URL(imageUrl);if(!['http:','https:'].includes(image.protocol))throw new Error();}catch{return json(res,400,{error:'Odkaz na obrázek musí být platná adresa HTTP nebo HTTPS.'});}}
-        const post={id:newId(),authorId:user.id,title,body,location,imageUrl,created:Date.now(),likes:[],comments:[],shareOf:null};onlineData.posts.push(post);saveOnlineData();return json(res,201,{post:compactPost(post)});
+        const post={id:newId(),authorId:user.id,authorName:user.name,title,body,location,imageUrl,created:Date.now(),likes:[],comments:[],shareOf:null};await writeFeedPost(post);return json(res,201,{post:compactPost(post)});
       }
-      const post=onlineData.posts.find(p=>p.id===postId);if(!post)return json(res,404,{error:'Příspěvek nebyl nalezen.'});
+      const post=await readFeedPost(postId);if(!post)return json(res,404,{error:'Příspěvek nebyl nalezen.'});
       if(req.method==='POST'&&action==='like'){
-        post.likes||=[];const index=post.likes.indexOf(user.id);if(index>=0)post.likes.splice(index,1);else post.likes.push(user.id);saveOnlineData();return json(res,200,{liked:index<0,likesCount:post.likes.length});
+        const updated=await updateFeedPost(postId,current=>{current.likes||=[];const index=current.likes.indexOf(user.id);if(index>=0)current.likes.splice(index,1);else current.likes.push(user.id);return {liked:index<0,likesCount:current.likes.length};});
+        return updated?json(res,200,updated.result):json(res,404,{error:'Příspěvek nebyl nalezen.'});
       }
       if(req.method==='POST'&&action==='comments'){
         const input=await readJson(req,4*1024),text=String(input.text||'').trim();if(!text||text.length>1000)return json(res,400,{error:'Komentář musí mít 1 až 1 000 znaků.'});
-        post.comments||=[];const comment={id:newId(),authorId:user.id,authorName:user.name,text,ts:Date.now()};post.comments.push(comment);saveOnlineData();return json(res,201,{comment:{id:comment.id,authorName:comment.authorName,text:comment.text,ts:comment.ts},commentsCount:post.comments.length});
+        const updated=await updateFeedPost(postId,current=>{current.comments||=[];const comment={id:newId(),authorId:user.id,authorName:user.name,text,ts:Date.now()};current.comments.push(comment);return {comment:{id:comment.id,authorName:comment.authorName,text:comment.text,ts:comment.ts},commentsCount:current.comments.length};});
+        return updated?json(res,201,updated.result):json(res,404,{error:'Příspěvek nebyl nalezen.'});
       }
       if(req.method==='POST'&&action==='share'){
         const input=await readJson(req,4*1024),text=String(input.text||'').trim();if(text.length>1000)return json(res,400,{error:'Text sdílení může mít nejvýše 1 000 znaků.'});
-        const repost={id:newId(),authorId:user.id,title:'',body:text,location:'',imageUrl:'',created:Date.now(),likes:[],comments:[],shareOf:post.id};onlineData.posts.push(repost);saveOnlineData();return json(res,201,{post:compactPost(repost)});
+        const repost={id:newId(),authorId:user.id,authorName:user.name,title:'',body:text,location:'',imageUrl:'',created:Date.now(),likes:[],comments:[],shareOf:post.id};await writeFeedPost(repost);return json(res,201,{post:compactPost(repost,[...onlineData.posts,repost])});
       }
     }
     if (url.pathname.startsWith('/api/chat/')) {
@@ -439,7 +506,12 @@ async function handleOnlineApi(req,res,url) {
 }
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, `http://${HOST}:${PORT}`);
-  if (req.method === 'GET' && url.pathname === '/api/health') return json(res, 200, { ok:true, scanner:true, chat:true, database:dbPool?'postgresql':'local-file', sources:SOURCES.length, app:`http://127.0.0.1:${PORT}/` });
+  if (req.method === 'GET' && url.pathname === '/api/health') {
+    if (!dbPool) return json(res, 200, { ok:true, version:APP_VERSION, scanner:true, chat:true, database:'local-file', feedStorage:'local-file', sources:SOURCES.length });
+    dbPool.query('SELECT 1').then(()=>json(res,200,{ok:true,version:APP_VERSION,scanner:true,chat:true,database:'postgresql',feedStorage:'postgresql',sources:SOURCES.length}))
+      .catch(()=>json(res,503,{ok:false,version:APP_VERSION,scanner:true,chat:true,database:'unavailable',feedStorage:'unavailable',sources:SOURCES.length}));
+    return;
+  }
   if (req.method === 'GET' && url.pathname === '/mobilni-zakazkar.html') {
     try { return send(res,200,fs.readFileSync(path.join(ROOT,'mobilni-zakazkar.html')),'text/html; charset=utf-8'); }
     catch { return json(res,404,{error:'Mobilní stránka nebyla nalezena.'}); }

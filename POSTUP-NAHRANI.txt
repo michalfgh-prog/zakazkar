@@ -1,6 +1,6 @@
 ZAKÁZKÁŘ – MOBILNÍ APLIKACE S NAŠIMI TIPY
 
-Mobilní verze po otevření nabízí dvě části: Poptávky a Naše tipy.
+Mobilní verze po otevření nabízí části Poptávky, Chat a Naše tipy.
 Přihlášení nebo registrace je nutná pro komunitní feed. Každý přihlášený uživatel může zveřejnit tip, přidat fotografii, lajkovat a komentovat příspěvky ostatních.
 
 NAHRÁNÍ NA GITHUB A RENDER
@@ -10,9 +10,12 @@ NAHRÁNÍ NA GITHUB A RENDER
 4. Build Command: npm install
 5. Start Command: npm start
 6. V Renderu vyberte Manual Deploy → Deploy latest commit.
-7. Po dokončení otevřete hlavní veřejnou adresu aplikace. Na stránce přepínejte mezi Poptávkami a Našimi tipy.
+7. Po dokončení otevřete hlavní veřejnou adresu aplikace. Na stránce přepínejte mezi Poptávkami, Chatem a Našimi tipy.
 
 Soubory package.json, server.js, mobilni-zakazkar.html a zakazkar-vylepsena.html musí být vedle sebe přímo v kořeni repozitáře.
 
 ÚČTY A UKLÁDÁNÍ
-Každý uživatel si vytvoří účet s e-mailem a heslem o délce alespoň 10 znaků. Tipy, lajky a komentáře ukládá server. Bez trvalého úložiště Renderu mohou být data po restartu služby ztracena. Pro dlouhodobý provoz nastavte trvalý disk nebo databázi.
+Pro chat a komunitní tipy se uživatel přihlásí nebo vytvoří účet s heslem o délce alespoň 10 znaků. Při správně nastaveném DATABASE_URL ukládá PostgreSQL účty, zprávy, tipy, lajky i komentáře. Po nasazení ověřte /api/health; očekávaná verze je 1.2.0 a úložiště má ukazovat PostgreSQL.
+
+NAHRÁNÍ ZMĚN
+Do hlavní složky GitHub repozitáře patří rozbalené soubory. Neodstraňujte celý repozitář a nenahrávejte samotný ZIP. Render musí mít prázdný Root Directory, Build Command npm install a Start Command npm start.
