@@ -365,7 +365,11 @@ const server = http.createServer((req, res) => {
     try { return send(res,200,fs.readFileSync(path.join(ROOT,'mobilni-zakazkar.html')),'text/html; charset=utf-8'); }
     catch { return json(res,404,{error:'Mobilní stránka nebyla nalezena.'}); }
   }
-  if (req.method === 'GET' && (url.pathname === '/' || url.pathname === '/zakazkar-vylepsena.html')) return sendHtml(res);
+  if (req.method === 'GET' && url.pathname === '/') {
+    try { return send(res,200,fs.readFileSync(path.join(ROOT,'mobilni-zakazkar.html')),'text/html; charset=utf-8'); }
+    catch { return send(res,500,'Mobilní stránku se nepodařilo načíst.','text/plain; charset=utf-8'); }
+  }
+  if (req.method === 'GET' && url.pathname === '/zakazkar-vylepsena.html') return sendHtml(res);
   if (url.pathname.startsWith('/api/auth/') || url.pathname.startsWith('/api/chat/') || url.pathname.startsWith('/api/feed/')) return handleOnlineApi(req,res,url);
   if (req.method === 'POST' && url.pathname === '/api/scan') {
     let body = '';
