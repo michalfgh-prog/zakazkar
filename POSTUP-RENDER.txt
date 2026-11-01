@@ -14,4 +14,5 @@ NAHRÁNÍ DO GITHUBU
 Server používá PORT z Renderu a naslouchá na 0.0.0.0.
 
 DŮLEŽITÉ PRO ONLINE CHAT
-Render má ve výchozím stavu dočasný disk. Bez nastavení trvalého disku se účty a zprávy v souboru data/online-data.json mohou ztratit po restartu nebo novém nasazení. Pro zachování dat připojte k placené webové službě Render disk s cestou /var/data a nastavte proměnnou DATA_DIR=/var/data. Než přejdete na placený plán, zkontrolujte cenu v Renderu. Free služba se po nečinnosti uspává a neudrží tento soubor trvale.
+Render má ve výchozím stavu dočasný disk. Bez nastavení trvalého disku se účty, chaty, příspěvky, lajky a komentáře v souboru data/online-data.json mohou ztratit po restartu nebo novém nasazení. Pro zachování dat připojte k placené webové službě Render disk s cestou /var/data a nastavte proměnnou DATA_DIR=/var/data. Než přejdete na placený plán, zkontrolujte cenu v Renderu. Free služba se po nečinnosti uspává a neudrží tento soubor trvale.
+

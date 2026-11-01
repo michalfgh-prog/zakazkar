@@ -575,6 +575,45 @@
   body.theme-dark .chat-thread.active, body.theme-dark .chat-thread:hover { background:#1e2b42; border-color:#344158; }
   @media(max-width:720px) { .chat-shell { grid-template-columns:1fr; } .chat-list { border-right:0; border-bottom:1px solid var(--border); } .chat-thread-list { max-height:180px; } .chat-room,.chat-shell { min-height:0; } .chat-messages { min-height:240px; } }
 
+  /* Naše tipy – community feed */
+  .tips-layout { max-width:760px; margin:0 auto; }
+  .tips-intro { color:var(--muted); font-size:13px; margin:-7px 0 16px; }
+  .tip-composer { padding:18px; margin-bottom:16px; }
+  .tip-composer h2 { font-size:16px; margin:0 0 12px; }
+  .tip-composer .field { margin:10px 0; }
+  .tip-composer input,.tip-composer textarea { width:100%; border:1px solid var(--border2); border-radius:11px; padding:11px 13px; background:var(--panel2); color:var(--txt); font:inherit; }
+  .tip-composer textarea { min-height:90px; resize:vertical; }
+  .tip-composer .row { align-items:center; }
+  .tips-feed { display:grid; gap:14px; }
+  .tip-post { padding:0; overflow:hidden; }
+  .tip-post-head { display:flex; align-items:center; gap:10px; padding:16px 18px 10px; }
+  .tip-avatar { width:40px; height:40px; flex:0 0 40px; display:grid; place-items:center; border-radius:50%; background:linear-gradient(135deg,#4f8cff,#7b4dff); color:#fff; font-size:13px; font-weight:800; }
+  .tip-author { min-width:0; flex:1; }
+  .tip-author strong { display:block; font-size:13px; }
+  .tip-author time { display:block; color:var(--muted); font-size:11px; }
+  .tip-tag { border-radius:99px; padding:4px 9px; color:var(--acc2); background:var(--acc-soft); font-size:10px; font-weight:750; }
+  .tip-content { padding:4px 18px 15px; }
+  .tip-content h3 { font-size:17px; margin:0 0 7px; letter-spacing:-.2px; }
+  .tip-content p { color:var(--muted); font-size:13px; line-height:1.6; white-space:pre-wrap; margin:0; }
+  .tip-location { display:inline-block; margin-top:11px; font-size:11px; padding:4px 8px; border:1px solid var(--border); border-radius:99px; color:var(--muted); }
+  .tip-image { display:block; width:100%; max-height:520px; object-fit:cover; background:var(--panel2); }
+  .tip-share-card { margin:2px 18px 14px; border:1px solid var(--border); border-radius:12px; overflow:hidden; }
+  .tip-share-card .tip-content { padding:13px; }
+  .tip-counts { display:flex; justify-content:space-between; gap:8px; padding:9px 18px; color:var(--muted); font-size:11px; border-bottom:1px solid var(--border); }
+  .tip-actions { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:5px; padding:7px 10px; border-bottom:1px solid var(--border); }
+  .tip-actions button { min-height:40px; border:0; border-radius:9px; background:transparent; color:var(--muted); font-weight:700; font-size:12px; cursor:pointer; }
+  .tip-actions button:hover,.tip-actions button.liked { background:var(--acc-soft); color:var(--acc); }
+  .tip-comments { padding:12px 16px 15px; }
+  .tip-comment { display:flex; gap:8px; margin:9px 0; font-size:12px; }
+  .tip-comment b { white-space:nowrap; }
+  .tip-comment span { color:var(--muted); white-space:pre-wrap; overflow-wrap:anywhere; }
+  .tip-comment-form { display:flex; gap:8px; margin-top:12px; }
+  .tip-comment-form input { flex:1; min-width:0; min-height:40px; padding:8px 11px; border:1px solid var(--border2); border-radius:99px; background:var(--panel2); color:var(--txt); }
+  .tip-comment-form button { min-width:72px; border:0; border-radius:99px; background:var(--acc); color:#fff; font-weight:750; cursor:pointer; }
+  body.theme-dark .tip-post, body.theme-dark .tip-composer { background:#111827; border-color:#293548; }
+  body.theme-dark .tip-composer input, body.theme-dark .tip-composer textarea, body.theme-dark .tip-comment-form input { background:#172033; border-color:#344158; color:#e6eaf2; }
+  @media(max-width:560px){ .tip-post-head{padding:14px 14px 8px}.tip-content{padding:4px 14px 13px}.tip-counts{padding:8px 14px}.tip-share-card{margin-left:14px;margin-right:14px}.tip-actions{padding-left:6px;padding-right:6px}.tip-actions button{font-size:11px} }
+
 </style>
 </head>
 <body>
@@ -786,6 +825,7 @@
     <div class="nav-item active" role="button" tabindex="0" data-view="dashboard" onclick="setView('dashboard')"><span>📊</span> Přehled</div>
     <div class="nav-item" role="button" tabindex="0" data-view="jobs" onclick="setView('jobs')"><span>📋</span> Zakázky <span class="n" id="nav-newcount"></span></div>
     <div class="nav-item" role="button" tabindex="0" data-view="chat" onclick="setView('chat')"><span>💬</span> Chat <span class="n" id="nav-chatcount"></span></div>
+    <div class="nav-item" role="button" tabindex="0" data-view="tips" onclick="setView('tips')"><span>📰</span> Naše tipy</div>
     <div class="nav-item" role="button" tabindex="0" data-view="favorites" onclick="setView('favorites')"><span>⭐</span> Oblíbené</div>
     <div class="nav-item" role="button" tabindex="0" data-view="keywords" onclick="setView('keywords')"><span>🎯</span> Klíčová slova</div>
     <div class="nav-item" role="button" tabindex="0" data-view="sources" onclick="setView('sources')"><span>📡</span> Portály</div>
@@ -900,6 +940,22 @@
             <div class="chat-messages" id="chat-messages"><div class="chat-empty">Založte konverzaci a ukládejte si k ní průběh domluvy s podnikatelem.</div></div>
             <form class="chat-compose" onsubmit="sendChatMessage(event)"><textarea id="chat-message-input" placeholder="Napište zprávu…" aria-label="Text zprávy" disabled></textarea><button class="btn" id="chat-send" type="submit" disabled>Odeslat</button></form>
           </section>
+        </div>
+      </div>
+
+      <!-- COMMUNITY TIPS -->
+      <div id="view-tips" class="hidden">
+        <div class="tips-layout">
+          <p class="tips-intro">Nabídky a tipy pro uživatele Zakázkáře. Zveřejňovat může správce, ostatní mohou příspěvky lajkovat, komentovat a sdílet v aplikaci.</p>
+          <form class="card tip-composer hidden" id="tip-composer" onsubmit="publishTip(event)">
+            <h2>Vytvořit příspěvek</h2>
+            <div class="field"><input id="tip-title" maxlength="140" required placeholder="Titulek inzerátu nebo tipu" aria-label="Titulek"></div>
+            <div class="field"><textarea id="tip-body" maxlength="4000" required placeholder="Popište nabídku, zakázku nebo tip…" aria-label="Text příspěvku"></textarea></div>
+            <div class="row"><div class="field flex1"><input id="tip-location" maxlength="120" placeholder="Lokalita (nepovinné)" aria-label="Lokalita"></div><div class="field flex1"><input id="tip-image" type="url" placeholder="Odkaz na obrázek (nepovinné)" aria-label="Odkaz na obrázek"></div></div>
+            <div style="display:flex;justify-content:flex-end;"><button class="btn small" id="tip-publish" type="submit">Zveřejnit</button></div>
+          </form>
+          <div class="status hidden" id="tips-message" role="status"></div>
+          <div class="tips-feed" id="tips-feed"><div class="card">Načítám tipy…</div></div>
         </div>
       </div>
 
@@ -1083,6 +1139,7 @@ let chatMessages = [];
 let chatPollTimer = null;
 let chatUserSearchTimer = null;
 let presenceTimer = null;
+let tipsPollTimer = null;
 function isDemandLeadRecord(lead) {
   if (!lead || !/^https?:\/\//i.test(String(lead.url||'')) || String(lead.title||'').trim().length < 14) return false;
   const text = (String(lead.title||'')+' '+String(lead.excerpt||'')).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
@@ -1207,18 +1264,20 @@ function enterApp() {
   if (settings.autoscan && Date.now()-lastScan > 24*60*60*1000) setTimeout(runScan, 900);
 }
 
-const VIEW_TITLES = { dashboard:['Přehled','Dobrý den'], jobs:['Zakázky','Poptávky pouze z Moravskoslezského kraje'], chat:['Chat','Konverzace k zakázkám a kontaktům'], favorites:['Oblíbené','Zakázky, které jste si uložili'], keywords:['Klíčová slova','Určete, jaké zakázky má Zakázkář hledat'], sources:['Portály','Zdroje pro Moravskoslezský kraj'], billing:['Fakturace','Tarif, platby a faktury'], settings:['Nastavení','Profil a notifikace'] };
+const VIEW_TITLES = { dashboard:['Přehled','Dobrý den'], jobs:['Zakázky','Poptávky pouze z Moravskoslezského kraje'], chat:['Chat','Konverzace k zakázkám a kontaktům'], tips:['Naše tipy','Nabídky a doporučení komunity Zakázkáře'], favorites:['Oblíbené','Zakázky, které jste si uložili'], keywords:['Klíčová slova','Určete, jaké zakázky má Zakázkář hledat'], sources:['Portály','Zdroje pro Moravskoslezský kraj'], billing:['Fakturace','Tarif, platby a faktury'], settings:['Nastavení','Profil a notifikace'] };
 function setView(v) {
   currentView = v;
   $$('.nav-item').forEach(n => { n.classList.toggle('active', n.dataset.view===v); n.setAttribute('aria-current', n.dataset.view===v ? 'page' : 'false'); });
-  ['dashboard','jobs','chat','favorites','keywords','sources','billing','settings'].forEach(name => $('#view-'+name).classList.toggle('hidden', name!==v));
+  ['dashboard','jobs','chat','tips','favorites','keywords','sources','billing','settings'].forEach(name => $('#view-'+name).classList.toggle('hidden', name!==v));
   $('#view-title').textContent = VIEW_TITLES[v][0];
   $('#view-crumb').innerHTML = VIEW_TITLES[v][1] + (v==='dashboard' ? ', <span id="hello-name">'+session.name.split(' ')[0]+'</span> 👋' : '');
   closeSidebar();
   if (v==='dashboard') renderDashboard();
   if (v==='jobs') renderLeads();
   if (chatPollTimer) { clearInterval(chatPollTimer); chatPollTimer=null; }
+  if (tipsPollTimer) { clearInterval(tipsPollTimer); tipsPollTimer=null; }
   if (v==='chat') { renderChat(); if(onlineUser){ refreshChatThreads(); chatPollTimer=setInterval(()=>{refreshChatThreads();if(activeChatId)refreshChatMessages();},3000); } }
+  if (v==='tips') { loadTips(); if(onlineUser)tipsPollTimer=setInterval(()=>loadTips(true),12000); }
   if (v==='favorites') renderFavorites();
 }
 function toggleSidebar() {
@@ -1631,6 +1690,39 @@ async function sendChatMessage(event) {
   catch(error){toast(error.message,'warn');}
   finally{button.disabled=false;$('#chat-message-input').focus();}
 }
+
+/* ---- společné tipy a inzeráty ---- */
+function safeTipImage(value) { try { const url=new URL(value); return ['http:','https:'].includes(url.protocol)?url.href:''; } catch { return ''; } }
+function tipDate(ts) { return new Date(ts).toLocaleString('cs-CZ',{dateStyle:'medium',timeStyle:'short'}); }
+async function loadTips(quiet=false) {
+  const feed=$('#tips-feed'),message=$('#tips-message');
+  if(!onlineUser){$('#tip-composer').classList.add('hidden');message.classList.remove('hidden');message.textContent='Pro zobrazení tipů se přihlaste ke svému účtu.';feed.innerHTML='<div class="card">Příspěvky jsou dostupné přihlášeným uživatelům Zakázkáře.</div>';return;}
+  try {
+    const data=await chatApi('/api/feed/posts');
+    $('#tip-composer').classList.toggle('hidden',!data.canPost);
+    message.classList.toggle('hidden',!!data.canPost);if(!data.canPost)message.textContent='Nové inzeráty a tipy zveřejňuje správce. Vy můžete příspěvky lajkovat, komentovat a sdílet.';
+    if(quiet&&feed.contains(document.activeElement))return;
+    feed.innerHTML=data.posts.length?data.posts.map(renderTipPost).join(''):'<div class="card">Zatím tu nejsou žádné tipy. Správce může přidat první příspěvek.</div>';
+  } catch(error) { if(!quiet){message.classList.remove('hidden');message.textContent=error.message;feed.innerHTML='<div class="card">Tipy se nepodařilo načíst. Zkontrolujte připojení a zkuste stránku obnovit.</div>'; } }
+}
+function renderTipPost(post) {
+  const initials=String(post.authorName||'Z').trim().split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase();
+  const shared=post.shared?`<div class="tip-share-card"><div class="tip-post-head"><div class="tip-avatar">${escapeHtml(String(post.shared.authorName||'Z').slice(0,1).toUpperCase())}</div><div class="tip-author"><strong>${escapeHtml(post.shared.authorName)}</strong><time>Původní příspěvek</time></div></div><div class="tip-content">${post.shared.title?`<h3>${escapeHtml(post.shared.title)}</h3>`:''}${post.shared.body?`<p>${escapeHtml(post.shared.body)}</p>`:''}${post.shared.location?`<span class="tip-location">📍 ${escapeHtml(post.shared.location)}</span>`:''}</div>${safeTipImage(post.shared.imageUrl)?`<img class="tip-image" src="${escapeHtml(safeTipImage(post.shared.imageUrl))}" alt="Obrázek sdíleného příspěvku" loading="lazy">`:''}</div>`:'';
+  const image=safeTipImage(post.imageUrl);
+  const comments=(post.comments||[]).map(c=>`<div class="tip-comment"><b>${escapeHtml(c.authorName)}</b><span>${escapeHtml(c.text)}</span></div>`).join('');
+  return `<article class="card tip-post"><div class="tip-post-head"><div class="tip-avatar">${escapeHtml(initials)}</div><div class="tip-author"><strong>${escapeHtml(post.authorName)}${post.shareOf?' · sdílel/a tip':''}</strong><time>${tipDate(post.created)}</time></div><span class="tip-tag">${post.shareOf?'SDÍLENO':'NAŠE TIPY'}</span></div>${post.body?`<div class="tip-content">${post.title?`<h3>${escapeHtml(post.title)}</h3>`:''}<p>${escapeHtml(post.body)}</p>${post.location?`<span class="tip-location">📍 ${escapeHtml(post.location)}</span>`:''}</div>`:''}${shared}${image?`<img class="tip-image" src="${escapeHtml(image)}" alt="Obrázek příspěvku" loading="lazy">`:''}<div class="tip-counts"><span>👍 ${post.likesCount} lajků</span><span>${post.commentsCount} komentářů · ${post.sharesCount} sdílení</span></div><div class="tip-actions"><button type="button" class="${post.likedByMe?'liked':''}" onclick="toggleTipLike('${post.id}')">${post.likedByMe?'👍 To se mi líbí':'♡ Like'}</button><button type="button" onclick="toggleTipComments('${post.id}')">💬 Komentář</button><button type="button" onclick="shareTip('${post.id}')">↗ Sdílet</button></div><div class="tip-comments hidden" id="tip-comments-${post.id}">${comments||'<div class="chat-empty">Zatím bez komentářů.</div>'}<form class="tip-comment-form" onsubmit="addTipComment(event,'${post.id}')"><input maxlength="1000" required placeholder="Napište komentář…" aria-label="Komentář"><button type="submit">Odeslat</button></form></div></article>`;
+}
+async function publishTip(event) {
+  event.preventDefault();const button=$('#tip-publish');button.disabled=true;
+  const form={title:$('#tip-title').value.trim(),body:$('#tip-body').value.trim(),location:$('#tip-location').value.trim(),imageUrl:$('#tip-image').value.trim()};
+  try { await chatApi('/api/feed/posts',{method:'POST',body:JSON.stringify(form)});event.target.reset();await loadTips();toast('Příspěvek byl zveřejněn.','ok'); }
+  catch(error){toast(error.message,'warn');}
+  finally{button.disabled=false;}
+}
+async function toggleTipLike(id) { try{await chatApi(`/api/feed/posts/${id}/like`,{method:'POST',body:'{}'});await loadTips();}catch(error){toast(error.message,'warn');} }
+function toggleTipComments(id) { const el=$(`#tip-comments-${id}`);el?.classList.toggle('hidden');el?.querySelector('input')?.focus(); }
+async function addTipComment(event,id) { event.preventDefault();const form=event.currentTarget,input=form.querySelector('input');try{await chatApi(`/api/feed/posts/${id}/comments`,{method:'POST',body:JSON.stringify({text:input.value.trim()})});await loadTips();$(`#tip-comments-${id}`)?.classList.remove('hidden');}catch(error){toast(error.message,'warn');} }
+async function shareTip(id) { try{await chatApi(`/api/feed/posts/${id}/share`,{method:'POST',body:JSON.stringify({text:''})});await loadTips();toast('Tip byl sdílen ve feedu.','ok');}catch(error){toast(error.message,'warn');} }
 
 function renderFunnel() {
   const el = $('#funnel'); if (!el) return;

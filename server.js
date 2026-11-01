@@ -11,8 +11,9 @@ const READER = 'https://r.jina.ai/';
 const MAX_BODY = 64 * 1024;
 const MIN_READER_INTERVAL_MS = 3100;
 
-let onlineData = { users:[], sessions:[], messages:[] };
+let onlineData = { users:[], sessions:[], messages:[], posts:[] };
 try { onlineData = { ...onlineData, ...JSON.parse(fs.readFileSync(DATA_FILE, 'utf8')) }; } catch {}
+onlineData.posts ||= [];
 const onlinePresence = new Map();
 function saveOnlineData() {
   fs.mkdirSync(DATA_DIR, { recursive:true });
@@ -20,8 +21,9 @@ function saveOnlineData() {
   fs.writeFileSync(temp, JSON.stringify(onlineData), { mode:0o600 });
   fs.renameSync(temp, DATA_FILE);
 }
+if(onlineData.users.length&&!onlineData.users.some(u=>u.role==='admin')){onlineData.users[0].role='admin';try{saveOnlineData();}catch{}}
 function sha256(value) { return crypto.createHash('sha256').update(String(value)).digest('hex'); }
-function publicUser(user) { return { id:user.id, name:user.name, email:user.email }; }
+function publicUser(user) { return { id:user.id, name:user.name, email:user.email, role:user.role||'user' }; }
 function getCookie(req, key) {
   const cookies = String(req.headers.cookie||'').split(';');
   for (const cookie of cookies) { const i=cookie.indexOf('='); if(i>0 && cookie.slice(0,i).trim()===key) return decodeURIComponent(cookie.slice(i+1).trim()); }
@@ -274,7 +276,7 @@ async function handleOnlineApi(req,res,url) {
         if(user) return json(res,409,{error:'Účet s tímto e-mailem už existuje. Přihlaste se.'});
         const salt=crypto.randomBytes(16).toString('hex');
         const name=String(input.name||email.split('@')[0]).trim().slice(0,100)||email.split('@')[0];
-        user={id:newId(),name,email,passwordHash:crypto.scryptSync(password,salt,64).toString('hex'),salt,created:Date.now()};
+        user={id:newId(),name,email,role:onlineData.users.length===0?'admin':'user',passwordHash:crypto.scryptSync(password,salt,64).toString('hex'),salt,created:Date.now()};
         onlineData.users.push(user);
       } else {
         if(!user||crypto.scryptSync(password,user.salt,64).toString('hex')!==user.passwordHash) return json(res,401,{error:'E-mail nebo heslo není správné.'});
@@ -287,6 +289,39 @@ async function handleOnlineApi(req,res,url) {
     if (req.method==='POST' && url.pathname==='/api/auth/logout') {
       const token=getCookie(req,'zakazkar_session'), session=onlineData.sessions.find(s=>s.tokenHash===sha256(token)); if(session)onlinePresence.delete(session.userId); onlineData.sessions=onlineData.sessions.filter(s=>s.tokenHash!==sha256(token)); saveOnlineData();
       res.setHeader('Set-Cookie','zakazkar_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0'); return json(res,200,{ok:true});
+    }
+    if (url.pathname.startsWith('/api/feed/')) {
+      const user=requireUser(req,res); if(!user) return;
+      const match=url.pathname.match(/^\/api\/feed\/posts(?:\/([^/]+)(?:\/(like|comments|share))?)?$/);
+      if(!match)return json(res,404,{error:'Nenalezeno.'});
+      const [,postId,action]=match;
+      const compactPost=post=>{
+        const author=onlineData.users.find(u=>u.id===post.authorId)||{name:'Uživatel Zakázkáře'};
+        const comments=(post.comments||[]).slice(-20).map(c=>({id:c.id,authorName:c.authorName,text:c.text,ts:c.ts}));
+        const shared=post.shareOf?onlineData.posts.find(p=>p.id===post.shareOf):null;
+        const sharedAuthor=shared?onlineData.users.find(u=>u.id===shared.authorId):null;
+        return {id:post.id,authorId:post.authorId,authorName:author.name,title:post.title||'',body:post.body||'',location:post.location||'',imageUrl:post.imageUrl||'',created:post.created,shareOf:post.shareOf||null,shared:shared?{authorName:sharedAuthor?.name||'Uživatel Zakázkáře',title:shared.title||'',body:shared.body||'',location:shared.location||'',imageUrl:shared.imageUrl||''}:null,likesCount:(post.likes||[]).length,likedByMe:(post.likes||[]).includes(user.id),commentsCount:(post.comments||[]).length,comments,sharesCount:onlineData.posts.filter(p=>p.shareOf===post.id).length};
+      };
+      if(req.method==='GET'&&postId===undefined) return json(res,200,{posts:[...onlineData.posts].sort((a,b)=>b.created-a.created).slice(0,100).map(compactPost),canPost:user.role==='admin'||String(process.env.FEED_ADMIN_EMAIL||'').trim().toLowerCase()===user.email});
+      if(req.method==='POST'&&postId===undefined) {
+        if(!(user.role==='admin'||String(process.env.FEED_ADMIN_EMAIL||'').trim().toLowerCase()===user.email))return json(res,403,{error:'Příspěvky může zveřejňovat pouze správce Zakázkáře.'});
+        const input=await readJson(req,16*1024),title=String(input.title||'').trim(),body=String(input.body||'').trim(),location=String(input.location||'').trim(),imageUrl=String(input.imageUrl||'').trim();
+        if(!title||title.length>140||body.length>4000||location.length>120)return json(res,400,{error:'Zkontrolujte titulek, text a lokalitu příspěvku.'});
+        if(imageUrl){try{const image=new URL(imageUrl);if(!['http:','https:'].includes(image.protocol))throw new Error();}catch{return json(res,400,{error:'Odkaz na obrázek musí být platná adresa HTTP nebo HTTPS.'});}}
+        const post={id:newId(),authorId:user.id,title,body,location,imageUrl,created:Date.now(),likes:[],comments:[],shareOf:null};onlineData.posts.push(post);saveOnlineData();return json(res,201,{post:compactPost(post)});
+      }
+      const post=onlineData.posts.find(p=>p.id===postId);if(!post)return json(res,404,{error:'Příspěvek nebyl nalezen.'});
+      if(req.method==='POST'&&action==='like'){
+        post.likes||=[];const index=post.likes.indexOf(user.id);if(index>=0)post.likes.splice(index,1);else post.likes.push(user.id);saveOnlineData();return json(res,200,{liked:index<0,likesCount:post.likes.length});
+      }
+      if(req.method==='POST'&&action==='comments'){
+        const input=await readJson(req,4*1024),text=String(input.text||'').trim();if(!text||text.length>1000)return json(res,400,{error:'Komentář musí mít 1 až 1 000 znaků.'});
+        post.comments||=[];const comment={id:newId(),authorId:user.id,authorName:user.name,text,ts:Date.now()};post.comments.push(comment);saveOnlineData();return json(res,201,{comment:{id:comment.id,authorName:comment.authorName,text:comment.text,ts:comment.ts},commentsCount:post.comments.length});
+      }
+      if(req.method==='POST'&&action==='share'){
+        const input=await readJson(req,4*1024),text=String(input.text||'').trim();if(text.length>1000)return json(res,400,{error:'Text sdílení může mít nejvýše 1 000 znaků.'});
+        const repost={id:newId(),authorId:user.id,title:'',body:text,location:'',imageUrl:'',created:Date.now(),likes:[],comments:[],shareOf:post.id};onlineData.posts.push(repost);saveOnlineData();return json(res,201,{post:compactPost(repost)});
+      }
     }
     if (url.pathname.startsWith('/api/chat/')) {
       const user=requireUser(req,res); if(!user) return;
