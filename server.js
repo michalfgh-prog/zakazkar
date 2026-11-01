@@ -302,9 +302,8 @@ async function handleOnlineApi(req,res,url) {
         const sharedAuthor=shared?onlineData.users.find(u=>u.id===shared.authorId):null;
         return {id:post.id,authorId:post.authorId,authorName:author.name,title:post.title||'',body:post.body||'',location:post.location||'',imageUrl:post.imageUrl||'',created:post.created,shareOf:post.shareOf||null,shared:shared?{authorName:sharedAuthor?.name||'Uživatel Zakázkáře',title:shared.title||'',body:shared.body||'',location:shared.location||'',imageUrl:shared.imageUrl||''}:null,likesCount:(post.likes||[]).length,likedByMe:(post.likes||[]).includes(user.id),commentsCount:(post.comments||[]).length,comments,sharesCount:onlineData.posts.filter(p=>p.shareOf===post.id).length};
       };
-      if(req.method==='GET'&&postId===undefined) return json(res,200,{posts:[...onlineData.posts].sort((a,b)=>b.created-a.created).slice(0,100).map(compactPost),canPost:user.role==='admin'||String(process.env.FEED_ADMIN_EMAIL||'').trim().toLowerCase()===user.email});
+      if(req.method==='GET'&&postId===undefined) return json(res,200,{posts:[...onlineData.posts].sort((a,b)=>b.created-a.created).slice(0,100).map(compactPost),canPost:true});
       if(req.method==='POST'&&postId===undefined) {
-        if(!(user.role==='admin'||String(process.env.FEED_ADMIN_EMAIL||'').trim().toLowerCase()===user.email))return json(res,403,{error:'Příspěvky může zveřejňovat pouze správce Zakázkáře.'});
         const input=await readJson(req,2*1024*1024),title=String(input.title||'').trim(),body=String(input.body||'').trim(),location=String(input.location||'').trim(),imageUrl=String(input.imageUrl||'').trim();
         if((!title&&!body&&!imageUrl)||title.length>140||body.length>4000||location.length>120)return json(res,400,{error:'Přidejte text, titulek nebo obrázek. Zkontrolujte také délku údajů.'});
         if(imageUrl.startsWith('data:')){if(imageUrl.length>1800000||!/^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/]+=*$/.test(imageUrl))return json(res,400,{error:'Obrázek je příliš velký nebo má nepodporovaný formát.'});}
@@ -366,12 +365,8 @@ const server = http.createServer((req, res) => {
     try { return send(res,200,fs.readFileSync(path.join(ROOT,'mobilni-zakazkar.html')),'text/html; charset=utf-8'); }
     catch { return json(res,404,{error:'Mobilní stránka nebyla nalezena.'}); }
   }
-  if (req.method === 'GET' && url.pathname === '/') {
-    try { return send(res,200,fs.readFileSync(path.join(ROOT,'mobilni-zakazkar.html')),'text/html; charset=utf-8'); }
-    catch { return send(res,500,'Mobilní stránku se nepodařilo načíst.','text/plain; charset=utf-8'); }
-  }
-  if (req.method === 'GET' && url.pathname === '/zakazkar-vylepsena.html') return sendHtml(res);
-  if (url.pathname.startsWith('/api/auth/') || url.pathname.startsWith('/api/chat/')) return handleOnlineApi(req,res,url);
+  if (req.method === 'GET' && (url.pathname === '/' || url.pathname === '/zakazkar-vylepsena.html')) return sendHtml(res);
+  if (url.pathname.startsWith('/api/auth/') || url.pathname.startsWith('/api/chat/') || url.pathname.startsWith('/api/feed/')) return handleOnlineApi(req,res,url);
   if (req.method === 'POST' && url.pathname === '/api/scan') {
     let body = '';
     req.on('data', chunk => {
@@ -397,4 +392,3 @@ const server = http.createServer((req, res) => {
 });
 server.listen(PORT, HOST, () => console.log(JSON.stringify({ ok:true, scanner:true, sources:SOURCES.length, app:`http://${HOST}:${PORT}/` })));
 server.on('error', error => { console.error('Zakázkář server: ' + error.message); process.exit(1); });
-
