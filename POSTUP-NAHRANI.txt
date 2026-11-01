@@ -1,0 +1,28 @@
+ZAKÁZKÁŘ – NAHRAZENÍ STARÉ VERZE MOBILNÍ VERZÍ
+
+Tento balíček je připravený tak, aby nová mobilní verze nahradila staré nasazení aplikace. Hlavní adresa webu po nasazení otevře mobilní vyhledávač poptávek.
+
+CO UDĚLAT NA GITHUBU
+1. Rozbalte ZIP do počítače.
+2. Otevřete repozitář zakazkar na GitHubu.
+3. Nahrajte všechny soubory z rozbalené složky přímo do hlavní složky repozitáře, ne do podsložky.
+4. Pokud GitHub oznámí, že soubory už existují, potvrďte jejich nahrazení.
+5. Uložte změny jako nový commit.
+6. Staré soubory, které v tomto balíčku nejsou a už se nepoužívají, můžete v repozitáři smazat. Nesmažte soubory z tohoto balíčku.
+
+V kořeni repozitáře musí být vedle sebe minimálně:
+- package.json
+- server.js
+- mobilni-zakazkar.html
+- zakazkar-vylepsena.html
+
+NASTAVENÍ RENDERU
+- Typ služby: Web Service
+- Root Directory: prázdné
+- Build Command: npm install
+- Start Command: npm start
+
+Po uložení změn v Renderu zvolte Manual Deploy → Deploy latest commit. Po úspěšném nasazení otevřete hlavní veřejnou adresu služby Render. Zobrazí se mobilní vyhledávač. Původní hlavní aplikace zůstane dostupná na adrese /zakazkar-vylepsena.html.
+
+DŮLEŽITÉ
+Mobilní vyhledávání potřebuje server. Nestačí nahrát pouze mobilni-zakazkar.html. Chat a „Naše tipy“ jsou dostupné v původní hlavní aplikaci, nikoli v jednoduchém mobilním vyhledávači.

@@ -1,8 +1,8 @@
 {
-  "name": "zakazkar",
+  "name": "zakazkar-mobilni",
   "version": "1.0.0",
   "private": true,
-  "description": "Zakazkar web app and mobile opportunity scanner",
+  "description": "Mobilní vyhledávání zakázek Zakázkář",
   "engines": { "node": ">=20" },
   "scripts": { "start": "node server.js" }
 }
